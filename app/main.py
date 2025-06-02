@@ -16,7 +16,6 @@ app = FastAPI(title="JobPsych Backend", version="1.0.0")
 
 origins = [
     "https://jobpsych.vercel.app",
-    "http://localhost:5173",  # Keep local development URL
 ]
 
 print(f"Configured CORS origins: {origins}")  # Debug logging
