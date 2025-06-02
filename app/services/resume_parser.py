@@ -1,3 +1,4 @@
+import PyPDF2
 import docx
 import pdfplumber
 from fastapi import UploadFile, HTTPException
@@ -10,24 +11,39 @@ import google.generativeai as genai
 
 class ResumeParser:
     async def parse(self, file: UploadFile) -> Dict[str, Any]:
+        """Parse resume file and extract information"""
         if not file or not file.filename:
             raise HTTPException(status_code=400, detail="No file provided")
+            
         content = await self._extract_text(file)
         return await self._analyze_with_gemini(content)
 
     async def _extract_text(self, file: UploadFile) -> str:
+        """Extract text from PDF or DOCX file"""
         if not file.filename:
             raise HTTPException(status_code=400, detail="No filename provided")
+            
         try:
             content = await file.read()
+            text = ""
             file_bytes = BytesIO(content)
             filename = file.filename.lower()
+
             if filename.endswith('.pdf'):
+                # Try with PyPDF2 first
                 try:
-                    with pdfplumber.open(file_bytes) as pdf:
-                        return " ".join(page.extract_text() for page in pdf.pages)
+                    pdf_reader = PyPDF2.PdfReader(file_bytes)
+                    text = " ".join(page.extract_text() for page in pdf_reader.pages)
                 except Exception as e:
-                    raise HTTPException(status_code=400, detail=f"Failed to read PDF: {str(e)}")
+                    # If PyPDF2 fails, try with pdfplumber
+                    try:
+                        file_bytes.seek(0)  # Reset file pointer
+                        with pdfplumber.open(file_bytes) as pdf:
+                            text = " ".join(page.extract_text() for page in pdf.pages)
+                    except Exception as pdf_e:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Failed to read PDF file: {str(e)}. pdfplumber error: {str(pdf_e)}"                        )
             
             elif filename.endswith(('.doc', '.docx')):
                 try:

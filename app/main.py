@@ -14,13 +14,14 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 app = FastAPI(title="JobPsych Backend", version="1.0.0")
 
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "").strip('"').split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://jobpsych.vercel.app"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
-    max_age=86400
 )
 
 app.include_router(resume_router.router, prefix="/api", tags=["resume"])
@@ -28,12 +29,23 @@ app.include_router(resume_router.router, prefix="/api", tags=["resume"])
 @app.post("/api/analyze-resume")
 async def analyze_resume(file: UploadFile) -> ResumeAnalysisResponse:
     try:
-        resume_data = await ResumeParser().parse(file)
-        questions = await QuestionGenerator().generate(resume_data)
-        return ResumeAnalysisResponse(resumeData=resume_data, questions=questions)
+        # Initialize services
+        resume_parser = ResumeParser()
+        question_generator = QuestionGenerator()
+
+        # Parse resume
+        resume_data = await resume_parser.parse(file)
+
+        # Generate questions
+        questions = await question_generator.generate(resume_data)
+
+        return ResumeAnalysisResponse(
+            resumeData=resume_data,
+            questions=questions
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
 async def root():
-    return {"message": "JobPsych API"}
+    return {"message": "Welcome to Resume Analysis API"}

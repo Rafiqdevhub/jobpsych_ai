@@ -9,13 +9,7 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "main.py",
-      "headers": {
-        "Access-Control-Allow-Origin": "https://jobpsych.vercel.app",
-        "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Methods": "GET,OPTIONS,PATCH,DELETE,POST,PUT",
-        "Access-Control-Allow-Headers": "*"
-      }
+      "dest": "main.py"
     }
   ]
 }
