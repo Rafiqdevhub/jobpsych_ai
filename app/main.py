@@ -18,7 +18,7 @@ app = FastAPI(title="JobPsych Backend", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://jobpsych.vercel.app"],
+    allow_origins=["*"],  # Allow all origins for development; adjust in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
