@@ -4,42 +4,26 @@ from app.models.schemas import Question
 
 class QuestionGenerator:
     async def generate(self, resume_data: Dict[str, Any]) -> List[Question]:
-        """Generate interview questions based on resume data"""
-        # Get the most capable model
         model = genai.GenerativeModel('gemini-2.0-flash')
-        
-        # Create a detailed prompt using resume data
-        prompt = self._create_prompt(resume_data)
-        
-        # Generate questions using Gemini
-        response = await model.generate_content_async(prompt)
-        
-        # Parse and format the response
+        response = await model.generate_content_async(self._create_prompt(resume_data))
         try:
-            raw_questions = self._parse_questions(response.text)
-            # Convert to Question objects
-            questions = [
-                Question(
-                    type=q["type"],
-                    question=q["question"],
-                    context=q.get("context", "Generated based on resume analysis")
-                )
-                for q in raw_questions
-            ]
-            return questions
+            return [Question(
+                type=q["type"],
+                question=q["question"],
+                context=q.get("context", "Based on resume")
+            ) for q in self._parse_questions(response.text)]
         except Exception as e:
             raise ValueError(f"Failed to generate questions: {str(e)}")
 
     def _create_prompt(self, resume_data: Dict[str, Any]) -> str:
-        """Create a detailed prompt for question generation"""
         skills = ", ".join(resume_data.get("skills", []))
         experience = "\n".join([
-            f"- {exp['title']} at {exp['company']}" 
-            for exp in resume_data.get("workExperience", [])
+            f"- {exp.get('title')} at {exp.get('company')}" 
+            for exp in resume_data.get("workExperience", []) if exp.get('title') and exp.get('company')
         ])
         education = "\n".join([
-            f"- {edu['degree']} from {edu['institution']}"
-            for edu in resume_data.get("education", [])
+            f"- {edu.get('degree')} from {edu.get('institution')}"
+            for edu in resume_data.get("education", []) if edu.get('degree') and edu.get('institution')
         ])
         
         return f"""

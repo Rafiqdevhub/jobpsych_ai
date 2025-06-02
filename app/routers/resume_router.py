@@ -4,7 +4,7 @@ from app.services.question_generator import QuestionGenerator
 from app.models.schemas import ResumeAnalysisResponse
 from app.models.schemas import ResumeData
 from pydantic import ValidationError
-from typing import Dict, Any
+
 
 router = APIRouter()
 

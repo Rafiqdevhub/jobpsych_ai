@@ -11,13 +11,13 @@ class Experience(BaseModel):
     title: Optional[str] = None
     company: Optional[str] = None
     duration: Optional[str] = None
-    description: Optional[List[str]] = []
+    description: List[str] = []
 
 class Education(BaseModel):
     degree: Optional[str] = None
     institution: Optional[str] = None
     year: Optional[str] = None
-    details: Optional[List[str]] = None
+    details: List[str] = []
 
 class ResumeData(BaseModel):
     personalInfo: PersonalInfo
