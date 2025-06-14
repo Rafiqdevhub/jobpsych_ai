@@ -5,19 +5,13 @@ from app.models.schemas import Question
 class QuestionGenerator:
     async def generate(self, resume_data: Dict[str, Any]) -> List[Question]:
         """Generate interview questions based on resume data"""
-        # Get the most capable model
         model = genai.GenerativeModel('gemini-2.0-flash')
-        
-        # Create a detailed prompt using resume data
         prompt = self._create_prompt(resume_data)
-        
-        # Generate questions using Gemini
+
         response = await model.generate_content_async(prompt)
-        
-        # Parse and format the response
+
         try:
             raw_questions = self._parse_questions(response.text)
-            # Convert to Question objects
             questions = [
                 Question(
                     type=q["type"],
@@ -31,55 +25,67 @@ class QuestionGenerator:
             raise ValueError(f"Failed to generate questions: {str(e)}")
 
     def _create_prompt(self, resume_data: Dict[str, Any]) -> str:
-        """Create a detailed prompt for question generation"""
+        """Create a detailed and specific prompt for question generation"""
         skills = ", ".join(resume_data.get("skills", []))
         experience = "\n".join([
-            f"- {exp['title']} at {exp['company']}" 
+            f"- {exp.get('title', '')} at {exp.get('company', '')}"
             for exp in resume_data.get("workExperience", [])
         ])
         education = "\n".join([
-            f"- {edu['degree']} from {edu['institution']}"
+            f"- {edu.get('degree', '')} from {edu.get('institution', '')}"
             for edu in resume_data.get("education", [])
         ])
-        
+
         return f"""
-        Generate a comprehensive set of interview questions based on this candidate's profile:
+You are an AI interviewer tasked with generating targeted and insightful interview questions tailored to a specific candidate's resume.
 
-        Skills: {skills}
-        
-        Experience:
-        {experience}
-        
-        Education:
-        {education}
+Below is the candidate’s profile:
 
-        Generate 15 unique interview questions divided into these categories:
-        1. Technical Skills (type: technical) - 5 questions based on their skills
-        2. Behavioral & Cultural Fit (type: behavioral) - 5 questions
-        3. Experience Validation (type: experience) - 5 questions based on their work history
+Skills:
+{skills}
 
-        Format each question as JSON with these fields:
-        {{
-            "type": "technical|behavioral|experience",
-            "question": "The actual question text",
-            "context": "Why this question is relevant based on the resume"
-        }}
+Experience:
+{experience}
 
-        Return all questions in a JSON array.
+Education:
+{education}
+
+Instructions:
+1. Analyze the candidate’s resume deeply.
+2. Generate 15 unique and specific interview questions, divided equally among the following categories:
+
+   - Technical Skills (type: technical) — 5 questions based on the candidate's stated skills, tools, technologies, and any technical certifications or projects.
+   - Behavioral & Cultural Fit (type: behavioral) — 5 questions aimed at understanding the candidate’s mindset, soft skills, team collaboration, adaptability, conflict resolution, and company culture fit.
+   - Experience Validation (type: experience) — 5 questions derived directly from the candidate's work history, project outcomes, responsibilities, roles, achievements, or impact.
+
+3. Questions should be deep, resume-specific, and test real-world understanding or decision-making.
+
+Format each question as a JSON object with the following structure:
+{{
+  "type": "technical | behavioral | experience",
+  "question": "The actual question text",
+  "context": "Brief explanation of why this question is relevant based on specific parts of the resume"
+}}
+
+Return all questions as a JSON array.
+
+Ensure the questions are:
+- Diverse and non-repetitive
+- Specific to the resume content
+- Contextually grounded in the candidate's background
         """
 
     def _parse_questions(self, text: str) -> List[Dict[str, str]]:
         """Parse generated questions from the response text"""
         import json
         import re
-        
-        # Find JSON array in the text using regex
-        pattern = r'\[\s*{[\s\S]*}\s*\]'
+
+        pattern = r'\[\s*{[\s\S]*?}\s*\]'
         matches = re.search(pattern, text)
-        
+
         if not matches:
             raise ValueError("No valid question format found in response")
-            
+
         try:
             questions_json = matches.group()
             questions = json.loads(questions_json)
