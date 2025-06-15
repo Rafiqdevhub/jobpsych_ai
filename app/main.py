@@ -17,7 +17,8 @@ app = FastAPI(title="JobPsych Backend", version="1.0.0")
 origins = [
     "http://localhost:3000", 
     "http://localhost:5173",   
-    "https://jobpsych.vercel.app/", 
+    "https://jobpsych.vercel.app",
+    "https://jobpsych-backend.vercel.app"
 ]
 
 app.add_middleware(
