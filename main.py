@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 import os
 from app.main import app
 
+app = app
+
 def main():
     """Run the FastAPI application"""
     load_dotenv()

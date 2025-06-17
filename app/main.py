@@ -14,30 +14,18 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 app = FastAPI(title="JobPsych Backend", version="1.0.0")
 
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-
-if ENVIRONMENT == "production":
-    origins = [
-        "https://jobpsych.vercel.app",
-        "https://jobpsych-backend.vercel.app"
-    ]
-else:
-    origins = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:8000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000"
-    ]
+origins = [
+    "https://jobpsych.vercel.app",  
+    "http://localhost:5173",      
+]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=False,
+    allow_credentials=True,   
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=600
+    allow_origin_regex=r"https://.*\.vercel\.app$" 
 )
 
 app.include_router(resume_router.router, prefix="/api", tags=["resume"])
