@@ -14,14 +14,11 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 app = FastAPI(title="JobPsych Backend", version="1.0.0")
 
-origins = [
-    "*"     
-]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,   
+    allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     allow_origin_regex=r"https://.*\.vercel\.app$" 
