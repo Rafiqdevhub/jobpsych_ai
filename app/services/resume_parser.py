@@ -6,10 +6,28 @@ import re
 from typing import Dict, Any
 import json
 from io import BytesIO
-import google.generativeai as genai
+import os
+
+try:
+    import google.generativeai as genai
+    GENAI_AVAILABLE = True
+except ImportError:
+    genai = None
+    GENAI_AVAILABLE = False
 
 
 class ResumeParser:
+    def __init__(self):
+        # Configure Google AI with API key
+        self.api_key = os.getenv("GOOGLE_API_KEY")
+        if not self.api_key:
+            raise ValueError("GOOGLE_API_KEY environment variable is required")
+        
+        if not GENAI_AVAILABLE or not genai:
+            raise ImportError("google-generativeai package is not available")
+            
+        genai.configure(api_key=self.api_key)
+
     async def parse(self, file: UploadFile) -> Dict[str, Any]:
         """Parse resume file and extract information"""
         if not file or not file.filename:
@@ -132,7 +150,6 @@ class ResumeParser:
             4. Keep the exact JSON structure as shown
             5. Return only the JSON object, no additional text
             """
-              # Use the GenerativeModel directly
             model = genai.GenerativeModel('gemini-2.0-flash')
             response = await model.generate_content_async(prompt)
             response_text = response.text

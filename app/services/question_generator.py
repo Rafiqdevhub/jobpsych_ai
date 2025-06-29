@@ -1,8 +1,25 @@
 from typing import Dict, List, Any
-import google.generativeai as genai
 from app.models.schemas import Question
+import os
+
+try:
+    import google.generativeai as genai
+    GENAI_AVAILABLE = True
+except ImportError:
+    genai = None
+    GENAI_AVAILABLE = False
 
 class QuestionGenerator:
+    def __init__(self):
+        self.api_key = os.getenv("GOOGLE_API_KEY")
+        if not self.api_key:
+            raise ValueError("GOOGLE_API_KEY environment variable is required")
+            
+        if not GENAI_AVAILABLE or not genai:
+            raise ImportError("google-generativeai package is not available")
+            
+        genai.configure(api_key=self.api_key)
+
     async def generate(self, resume_data: Dict[str, Any]) -> List[Question]:
         """Generate interview questions based on resume data"""
         model = genai.GenerativeModel('gemini-2.0-flash')
