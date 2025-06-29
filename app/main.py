@@ -15,8 +15,7 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 app = FastAPI(title="JobPsych Backend", version="1.0.0")
 
 origins = [
-    "https://jobpsych.vercel.app",  
-    "http://localhost:5173",      
+    "*"     
 ]
 
 app.add_middleware(
