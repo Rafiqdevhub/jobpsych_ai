@@ -16,9 +16,11 @@ app = FastAPI(
     description="Resume Analysis and Interview Question Generation API"
 )
 
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["https://jobpsych.vercel.app/"],
     allow_credentials=False, 
     allow_methods=["*"],
     allow_headers=["*"],
