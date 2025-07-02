@@ -20,7 +20,11 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://jobpsych.vercel.app/"],
+    allow_origins=[
+        "https://jobpsych.vercel.app",  # Remove trailing slash
+        "http://localhost:3000",        # Local development
+        "http://localhost:5173"         # Vite development
+    ],
     allow_credentials=False, 
     allow_methods=["*"],
     allow_headers=["*"],
