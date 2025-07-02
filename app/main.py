@@ -35,7 +35,12 @@ async def root():
     return {
         "message": "Welcome to JobPsych Resume Analysis API", 
         "status": "running",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "rate_limit": {
+            "daily_limit": 2,
+            "per": "IP address",
+            "endpoint": "/api/analyze-resume"
+        }
     }
 
 @app.get("/health")

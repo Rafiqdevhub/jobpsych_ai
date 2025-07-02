@@ -13,6 +13,7 @@ dependencies = [
   "python-docx>=1.1.2",
   "python-dotenv>=1.1.0",
   "python-multipart>=0.0.20",
+  "slowapi>=0.1.9",
   "uvicorn>=0.34.2",
 ]
 

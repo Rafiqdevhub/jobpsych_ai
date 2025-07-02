@@ -7,3 +7,4 @@ PyPDF2
 python-dotenv
 pdfplumber
 pydantic
+slowapi
