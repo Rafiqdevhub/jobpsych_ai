@@ -9,6 +9,19 @@ class RateLimiter:
         self._ip_data: Dict[str, Dict] = {}
         self._lock = threading.Lock()
     
+    def _get_next_midnight_utc(self) -> datetime:
+        now = datetime.utcnow()
+        today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        if now > today_midnight:
+            return today_midnight + timedelta(days=1)
+        return today_midnight
+    
+    def _should_reset_counter(self, last_reset: datetime) -> bool:
+        now = datetime.utcnow()
+        today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        return last_reset < today_midnight
+        return last_reset < today_midnight
+    
     def check_rate_limit(self, ip_address: str, max_requests: int = 2) -> None:
         with self._lock:
             now = datetime.utcnow()
@@ -16,21 +29,18 @@ class RateLimiter:
             if ip_address not in self._ip_data:
                 self._ip_data[ip_address] = {
                     "count": 0,
-                    "first_request": now,
                     "last_reset": now
                 }
             
             ip_info = self._ip_data[ip_address]
             
-            time_since_first = now - ip_info["first_request"]
-            if time_since_first >= timedelta(hours=24):
+            if self._should_reset_counter(ip_info["last_reset"]):
                 ip_info["count"] = 0
-                ip_info["first_request"] = now
                 ip_info["last_reset"] = now
             
             if ip_info["count"] >= max_requests:
-                reset_time = ip_info["first_request"] + timedelta(hours=24)
-                remaining_time = reset_time - now
+                next_midnight = self._get_next_midnight_utc()
+                remaining_time = next_midnight - now
                 hours_remaining = int(remaining_time.total_seconds() // 3600)
                 minutes_remaining = int((remaining_time.total_seconds() % 3600) // 60)
                 
@@ -51,27 +61,23 @@ class RateLimiter:
             if ip_address not in self._ip_data:
                 return {
                     "remaining": max_requests,
-                    "reset_time": None,
+                    "reset_time": self._get_next_midnight_utc().isoformat(),
                     "used": 0
                 }
             
             ip_info = self._ip_data[ip_address]
             now = datetime.utcnow()
             
-            time_since_first = now - ip_info["first_request"]
-            if time_since_first >= timedelta(hours=24):
-                return {
-                    "remaining": max_requests,
-                    "reset_time": None,
-                    "used": 0
-                }
+            if self._should_reset_counter(ip_info["last_reset"]):
+                ip_info["count"] = 0
+                ip_info["last_reset"] = now
             
-            reset_time = ip_info["first_request"] + timedelta(hours=24)
+            next_midnight = self._get_next_midnight_utc()
             remaining = max(0, max_requests - ip_info["count"])
             
             return {
                 "remaining": remaining,
-                "reset_time": reset_time.isoformat(),
+                "reset_time": next_midnight.isoformat(),
                 "used": ip_info["count"]
             }
 
