@@ -31,6 +31,17 @@ class Question(BaseModel):
     question: str
     context: str
 
+class RoleRecommendation(BaseModel):
+    roleName: str
+    matchPercentage: int
+    reasoning: str
+    requiredSkills: List[str] = []
+    missingSkills: List[str] = []
+    careerLevel: str = "Mid-level"
+    salaryRange: str = "Competitive"
+    industryFit: str = "Good"
+
 class ResumeAnalysisResponse(BaseModel):
     resumeData: ResumeData
     questions: List[Question]
+    roleRecommendations: List[RoleRecommendation]

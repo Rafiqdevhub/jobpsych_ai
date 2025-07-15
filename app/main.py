@@ -12,8 +12,8 @@ from app.routers import resume_router
 
 app = FastAPI(
     title="JobPsych Backend", 
-    version="1.0.0",
-    description="Resume Analysis and Interview Question Generation API"
+    version="2.0.0",
+    description="AI-powered resume analysis and job role recommendation service and HR interview question generation for HR professionals.",
 )
 
 
@@ -21,7 +21,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://jobpsych.vercel.app"
+        "https://jobpsych.vercel.app",
     ],
     allow_credentials=False, 
     allow_methods=["*"],
@@ -31,39 +31,55 @@ app.add_middleware(
 app.include_router(resume_router.router, prefix="/api", tags=["resume"])
 
 @app.get("/")
-async def root(request: Request):
-    from app.services.rate_limiter import get_client_ip, get_user_id_from_request
-    
-    client_ip = get_client_ip(request)
-    user_id = get_user_id_from_request(request)
-    is_local = client_ip == "127.0.0.1" or client_ip == "localhost" or client_ip.startswith("192.168.") or client_ip.startswith("10.")
-    
+async def root():
     return {
-        "message": "Welcome to JobPsych Resume Analysis API", 
+        "message": "Welcome to JobPsych: AI-Powered Role Suggestion and Resume Analysis API",
         "status": "running",
-        "version": "1.0.0",
-        "rate_limits": {
-            "anonymous_users": {
-                "limit": "unlimited" if is_local else 2,
-                "limit_type": "per IP address",
-                "description": "2 free analyses per location"
-            },
-            "authenticated_users": {
-                "free_tier": "2 additional analyses after signup",
-                "premium_tier": "unlimited"
-            }
-        },
-        "authentication": {
-            "required": False,
-            "benefits": "Get additional free analyses and save your history"
-        },
+        "version": "2.0.0",
+        "description": (
+            "Upload a candidate's resume along with a target job role and description. "
+            "The system will extract resume information, analyze fit for the specified role, "
+            "and suggest the best-matching job roles for the candidate, including detailed reasoning and skill gap analysis."
+        ),
+        "features": [
+            "Resume parsing and information extraction (PDF, DOCX)",
+            "Role fit analysis for candidate and job description",
+            "AI-powered job role suggestions with match percentage",
+            "Skill gap and reasoning for each recommendation",
+            "HR interview question generation (coming soon)"
+        ],
+        "workflow": [
+            "1. Upload resume (PDF/DOCX) and specify target role & job description.",
+            "2. System extracts candidate data and analyzes fit for the target role.",
+            "3. Get top job role suggestions, match scores, and skill gap insights."
+        ],
         "endpoints": {
             "analyze": "/api/analyze-resume",
-            "rate_status": "/api/rate-limit-status",
-            "signup_info": "/api/auth/signup-required",
-            "upgrade_info": "/api/upgrade-plan"
+            "health": "/health"
         },
-        "is_development_mode": is_local
+        "example_request": {
+            "file": "<resume.pdf>",
+            "target_role": "Data Scientist",
+            "job_description": "Analyze data, build ML models, communicate insights..."
+        },
+        "example_response": {
+            "roleRecommendations": [
+                {
+                    "roleName": "Data Scientist",
+                    "matchPercentage": 87,
+                    "reasoning": "Strong background in Python, statistics, and ML projects.",
+                    "requiredSkills": ["Python", "Machine Learning", "Statistics"],
+                    "missingSkills": ["Deep Learning"]
+                },
+                {
+                    "roleName": "Data Analyst",
+                    "matchPercentage": 80,
+                    "reasoning": "Excellent data analysis and visualization skills.",
+                    "requiredSkills": ["SQL", "Data Visualization"],
+                    "missingSkills": ["Big Data Tools"]
+                }
+            ]
+        }
     }
 
 @app.get("/health")
