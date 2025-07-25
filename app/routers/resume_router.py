@@ -67,7 +67,7 @@ async def hiredesk_analyze(
     file: UploadFile,
     request: Request,
     target_role: str = Form(...),
-    job_description: Optional[str] = Form(None)
+    job_description: str = Form(...)
 ):
     try:
         parser = ResumeParser()
@@ -86,9 +86,25 @@ async def hiredesk_analyze(
             reasoning = "Unexpected response format."
             role_recommendations = []
 
+        # Generate questions if candidate is fit
+        questions = []
+        if fit_status == "fit":
+            try:
+                from app.services.question_generator import QuestionGenerator
+                question_gen = QuestionGenerator()
+                # Use role-specific question generation
+                raw_questions = await question_gen.generate_for_role(resume_data, target_role, job_description)
+                try:
+                    from app.models.schemas import Question
+                    questions = [Question(**q) if isinstance(q, dict) else q for q in raw_questions]
+                except Exception:
+                    questions = raw_questions
+            except Exception:
+                questions = []
+
         response = ResumeAnalysisResponse(
             resumeData=ResumeData(**resume_data),
-            questions=[],
+            questions=questions,
             roleRecommendations=role_recommendations,
         )
         return {
