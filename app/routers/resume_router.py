@@ -74,26 +74,27 @@ async def hiredesk_analyze(
         resume_data = await parser.parse(file)
 
         recommender = RoleRecommender()
-        # Analyze fit for the specified role
-        fit_result = await recommender.analyze_role_fit(resume_data, target_role, job_description)
-        # fit_result should contain: {"fit": True/False, "reasoning": str, "roleRecommendations": list}
+        # Instead of only analyzing fit for the provided target_role, recommend best-fit roles from resume
+        role_recommendations = await recommender.recommend_roles(resume_data)
+        # Pick the top recommended role as the best fit
+        best_fit_role = role_recommendations[0] if role_recommendations else target_role
+
+        # Analyze fit for the best-fit role
+        fit_result = await recommender.analyze_role_fit(resume_data, best_fit_role, job_description)
         if isinstance(fit_result, dict):
             fit_status = "fit" if fit_result.get("fit", False) else "not fit"
             reasoning = fit_result.get("reasoning", "No reasoning provided.")
-            role_recommendations = fit_result.get("roleRecommendations", [])
         else:
             fit_status = "not fit"
             reasoning = "Unexpected response format."
-            role_recommendations = []
 
-        # Generate questions if candidate is fit
+        # Generate questions for the best-fit role
         questions = []
         if fit_status == "fit":
             try:
                 from app.services.question_generator import QuestionGenerator
                 question_gen = QuestionGenerator()
-                # Use role-specific question generation
-                raw_questions = await question_gen.generate_for_role(resume_data, target_role, job_description)
+                raw_questions = await question_gen.generate_for_role(resume_data, best_fit_role, job_description)
                 try:
                     from app.models.schemas import Question
                     questions = [Question(**q) if isinstance(q, dict) else q for q in raw_questions]
@@ -112,7 +113,8 @@ async def hiredesk_analyze(
             "reasoning": reasoning,
             "resumeData": response.resumeData,
             "roleRecommendations": response.roleRecommendations,
-            "questions": response.questions
+            "questions": response.questions,
+            "best_fit_role": best_fit_role
         }
     except ValidationError as e:
         raise HTTPException(
