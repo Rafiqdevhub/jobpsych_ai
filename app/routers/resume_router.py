@@ -77,20 +77,10 @@ async def analyze_resume(
             # General role recommendations
             role_recommendations = await recommender.recommend_roles(resume_data)
 
-        # Generate interview questions based on resume
-        try:
-            from app.services.question_generator import QuestionGenerator
-            question_gen = QuestionGenerator()
-            raw_questions = await question_gen.generate(resume_data)
-            from app.models.schemas import Question
-            questions = [Question(**q) if isinstance(q, dict) else q for q in raw_questions]
-        except Exception:
-            questions = []
-
-        # Create response with analysis results and questions
+        # Create response with analysis results (no questions)
         response = ResumeAnalysisResponse(
             resumeData=ResumeData(**resume_data),
-            questions=questions,
+            questions=[],
             roleRecommendations=role_recommendations
         )
         return response
@@ -125,9 +115,16 @@ async def hiredesk_analyze(
         role_recommendations = await recommender.recommend_roles(resume_data)
         # Pick the top recommended role as the best fit
         best_fit_role = role_recommendations[0] if role_recommendations else target_role
+        # Always use string for role name
+        if isinstance(best_fit_role, str):
+            best_fit_role_name = best_fit_role
+        elif hasattr(best_fit_role, 'roleName'):
+            best_fit_role_name = best_fit_role.roleName
+        else:
+            best_fit_role_name = str(best_fit_role)
 
         # Analyze fit for the best-fit role
-        fit_result = await recommender.analyze_role_fit(resume_data, best_fit_role, job_description)
+        fit_result = await recommender.analyze_role_fit(resume_data, best_fit_role_name, job_description)
         if isinstance(fit_result, dict):
             fit_status = "fit" if fit_result.get("fit", False) else "not fit"
             reasoning = fit_result.get("reasoning", "No reasoning provided.")
@@ -135,20 +132,29 @@ async def hiredesk_analyze(
             fit_status = "not fit"
             reasoning = "Unexpected response format."
 
-        # Generate questions for the best-fit role
+        # Generate questions for the best-fit role and general resume
         questions = []
-        if fit_status == "fit":
-            try:
-                from app.services.question_generator import QuestionGenerator
-                question_gen = QuestionGenerator()
-                raw_questions = await question_gen.generate_for_role(resume_data, best_fit_role, job_description)
-                try:
-                    from app.models.schemas import Question
-                    questions = [Question(**q) if isinstance(q, dict) else q for q in raw_questions]
-                except Exception:
-                    questions = raw_questions
-            except Exception:
-                questions = []
+        try:
+            from app.services.question_generator import QuestionGenerator
+            question_gen = QuestionGenerator()
+            # General resume-based questions
+            general_questions = await question_gen.generate(resume_data)
+            # Role-specific questions if candidate is fit
+            role_questions = []
+            if fit_status == "fit":
+                role_questions = await question_gen.generate_for_role(resume_data, best_fit_role_name, job_description)
+            from app.models.schemas import Question
+            # Combine and deduplicate questions
+            all_questions = general_questions + role_questions
+            seen = set()
+            questions = []
+            for q in all_questions:
+                q_text = q["question"] if isinstance(q, dict) else getattr(q, "question", None)
+                if q_text and q_text not in seen:
+                    questions.append(Question(**q) if isinstance(q, dict) else q)
+                    seen.add(q_text)
+        except Exception:
+            questions = []
 
         response = ResumeAnalysisResponse(
             resumeData=ResumeData(**resume_data),
@@ -161,7 +167,7 @@ async def hiredesk_analyze(
             "resumeData": response.resumeData,
             "roleRecommendations": response.roleRecommendations,
             "questions": response.questions,
-            "best_fit_role": best_fit_role
+            "best_fit_role": best_fit_role_name
         }
     except ValidationError as e:
         raise HTTPException(
