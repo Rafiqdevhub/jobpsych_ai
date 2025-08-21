@@ -18,6 +18,43 @@ def format_validation_error(error: ValidationError) -> str:
             field = f"{parent} #{field + 1}"
         error_messages.append(f"{field}: {err['msg']}")
     return "Validation Error: " + "; ".join(error_messages)
+@router.post("/generate-questions", response_model=ResumeAnalysisResponse, status_code=status.HTTP_200_OK)
+async def generate_questions(
+    file: UploadFile,
+    request: Request
+):
+    try:
+        parser = ResumeParser()
+        resume_data = await parser.parse(file)
+
+        from app.services.question_generator import QuestionGenerator
+        question_gen = QuestionGenerator()
+        raw_questions = await question_gen.generate(resume_data)
+        try:
+            from app.models.schemas import Question
+            questions = [Question(**q) if isinstance(q, dict) else q for q in raw_questions]
+        except Exception:
+            questions = raw_questions
+
+        response = ResumeAnalysisResponse(
+            resumeData=ResumeData(**resume_data),
+            questions=questions,
+            roleRecommendations=[],
+        )
+        return response
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=422,
+            detail=format_validation_error(e)
+        )
+    except Exception as e:
+        error_message = str(e)
+        if "PDF" in error_message:
+            error_message = "Error reading PDF file. Please ensure it's not corrupted or password protected."
+        elif "DOCX" in error_message:
+            error_message = "Error reading DOCX file. Please ensure it's a valid Word document."
+        raise HTTPException(status_code=500, detail=error_message)
+
 
 @router.post("/analyze-resume", response_model=ResumeAnalysisResponse)
 async def analyze_resume(
@@ -40,10 +77,20 @@ async def analyze_resume(
             # General role recommendations
             role_recommendations = await recommender.recommend_roles(resume_data)
 
-        # Create response with analysis results (no questions)
+        # Generate interview questions based on resume
+        try:
+            from app.services.question_generator import QuestionGenerator
+            question_gen = QuestionGenerator()
+            raw_questions = await question_gen.generate(resume_data)
+            from app.models.schemas import Question
+            questions = [Question(**q) if isinstance(q, dict) else q for q in raw_questions]
+        except Exception:
+            questions = []
+
+        # Create response with analysis results and questions
         response = ResumeAnalysisResponse(
             resumeData=ResumeData(**resume_data),
-            questions=[],  # Empty questions array
+            questions=questions,
             roleRecommendations=role_recommendations
         )
         return response

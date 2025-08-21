@@ -38,7 +38,6 @@ class RoleRecommendation(BaseModel):
     requiredSkills: List[str] = []
     missingSkills: List[str] = []
     careerLevel: str = "Mid-level"
-    salaryRange: str = "Competitive"
     industryFit: str = "Good"
 
 class ResumeAnalysisResponse(BaseModel):

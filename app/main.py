@@ -47,15 +47,18 @@ async def root():
             "Role fit analysis for candidate and job description",
             "AI-powered job role suggestions with match percentage",
             "Skill gap and reasoning for each recommendation",
-            "HR interview question generation (coming soon)"
+            "HR interview question generation (AI-powered, based on resume and experience)"
         ],
         "workflow": [
-            "1. Upload resume (PDF/DOCX) and specify target role & job description.",
-            "2. System extracts candidate data and analyzes fit for the target role.",
-            "3. Get top job role suggestions, match scores, and skill gap insights."
+            "1. Upload resume (PDF/DOCX) and specify target role & job description (for recommendations and fit analysis).",
+            "2. Or, upload resume only to generate AI-powered interview questions for HR.",
+            "3. System extracts candidate data and analyzes fit for the target role (if provided).",
+            "4. Get top job role suggestions, match scores, skill gap insights, and AI-generated interview questions."
         ],
         "endpoints": {
             "analyze": "/api/analyze-resume",
+            "hiredesk": "/api/hiredesk-analyze",
+            "generate_questions": "/api/generate-questions",
             "health": "/health"
         },
         "example_request": {
