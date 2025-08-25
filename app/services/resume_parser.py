@@ -18,7 +18,6 @@ except ImportError:
 
 class ResumeParser:
     def __init__(self):
-        # Configure Google AI with API key
         self.api_key = os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY environment variable is required")
@@ -48,14 +47,12 @@ class ResumeParser:
             filename = file.filename.lower()
 
             if filename.endswith('.pdf'):
-                # Try with PyPDF2 first
                 try:
                     pdf_reader = PyPDF2.PdfReader(file_bytes)
                     text = " ".join(page.extract_text() for page in pdf_reader.pages)
                 except Exception as e:
-                    # If PyPDF2 fails, try with pdfplumber
                     try:
-                        file_bytes.seek(0)  # Reset file pointer
+                        file_bytes.seek(0)  
                         with pdfplumber.open(file_bytes) as pdf:
                             text = " ".join(page.extract_text() for page in pdf.pages)
                     except Exception as pdf_e:
@@ -65,11 +62,10 @@ class ResumeParser:
             
             elif filename.endswith(('.doc', '.docx')):
                 try:
-                    file_bytes.seek(0)  # Reset file pointer
+                    file_bytes.seek(0) 
                     doc = docx.Document(file_bytes)
                     paragraphs = [paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()]
                     if not paragraphs:
-                        # If no paragraphs found, try to extract from tables as well
                         for table in doc.tables:
                             for row in table.rows:
                                 paragraphs.extend(cell.text.strip() for cell in row.cells if cell.text.strip())
@@ -154,7 +150,6 @@ class ResumeParser:
             response = await model.generate_content_async(prompt)
             response_text = response.text
 
-            # Extract JSON from the response
             if not response_text:
                 raise ValueError("No response from Gemini")
                 
