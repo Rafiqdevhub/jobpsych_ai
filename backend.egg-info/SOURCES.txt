@@ -1,0 +1,13 @@
+pyproject.toml
+app/__init__.py
+app/main.py
+app/models/schemas.py
+app/routers/resume_router.py
+app/services/question_generator.py
+app/services/resume_parser.py
+app/services/role_recommender.py
+backend.egg-info/PKG-INFO
+backend.egg-info/SOURCES.txt
+backend.egg-info/dependency_links.txt
+backend.egg-info/requires.txt
+backend.egg-info/top_level.txt

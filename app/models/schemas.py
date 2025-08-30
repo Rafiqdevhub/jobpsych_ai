@@ -44,3 +44,86 @@ class ResumeAnalysisResponse(BaseModel):
     resumeData: ResumeData
     questions: List[Question]
     roleRecommendations: List[RoleRecommendation]
+
+# New schemas for hiring candidate analysis
+class SkillGap(BaseModel):
+    skill: str
+    type: str  # "required" | "preferred" | "responsibility-based"
+    priority: str  # "high" | "medium" | "low"
+    reason: str
+    category: str
+
+class LearningResource(BaseModel):
+    skill: str
+    courses: List[str]
+    platforms: List[str]
+    difficulty: str
+
+class ProjectSuggestion(BaseModel):
+    skill: str
+    project: str
+    difficulty: str
+    estimated_time: str
+
+class LearningPlan(BaseModel):
+    immediate_actions: List[dict]
+    short_term_goals: List[dict]
+    long_term_goals: List[dict]
+    resources: List[LearningResource]
+    projects: List[ProjectSuggestion]
+
+class TimelineMilestone(BaseModel):
+    week: Optional[int] = None
+    month: Optional[int] = None
+    achievement: str
+
+class LearningTimeline(BaseModel):
+    week_1_2: List[str]
+    month_1_2: List[str]
+    month_3_6: List[str]
+    milestones: List[TimelineMilestone]
+
+class CareerPathSuggestion(BaseModel):
+    path: str
+    reason: str
+    next_steps: List[str]
+
+class SkillsRecommendation(BaseModel):
+    skill_gaps: List[SkillGap]
+    learning_plan: LearningPlan
+    prioritized_skills: List[SkillGap]
+    timeline: LearningTimeline
+    estimated_time: str
+    career_path_suggestions: List[CareerPathSuggestion]
+
+class SimilarityAnalysis(BaseModel):
+    strengths: List[str]
+    weaknesses: List[str]
+    skill_gaps: List[str]
+    experience_alignment: str
+    overall_assessment: str
+
+class HiringCandidateAnalysis(BaseModel):
+    overall_score: float
+    semantic_similarity: float
+    skills_match: float
+    experience_match: float
+    text_similarity: float
+    analysis: SimilarityAnalysis
+    recommendations: List[str]
+
+class JobDescriptionData(BaseModel):
+    job_title: str
+    required_skills: List[str]
+    preferred_skills: List[str]
+    experience_level: str
+    qualifications: List[str]
+    responsibilities: List[str]
+    benefits: List[str]
+
+class HiringCandidateResponse(BaseModel):
+    resume_data: ResumeData
+    job_data: JobDescriptionData
+    similarity_analysis: HiringCandidateAnalysis
+    skills_recommendations: SkillsRecommendation
+    processing_time_seconds: float

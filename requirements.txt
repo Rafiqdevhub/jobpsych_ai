@@ -8,3 +8,8 @@ python-dotenv
 pdfplumber
 pydantic
 slowapi
+transformers
+torch
+scikit-learn
+numpy
+sentence-transformers
