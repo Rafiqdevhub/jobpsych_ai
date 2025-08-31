@@ -6,10 +6,5 @@ pypdf2>=3.0.1
 python-docx>=1.1.2
 python-dotenv>=1.1.0
 python-multipart>=0.0.20
-sentence-transformers>=5.1.0
 slowapi>=0.1.9
-torch>=2.8.0
-transformers>=4.56.0
 uvicorn>=0.34.2
-spacy
-torch
