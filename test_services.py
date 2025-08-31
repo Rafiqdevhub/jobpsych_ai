@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script to verify our new AI services can be imported and instantiated.
+Test script to verify our core services can be imported and instantiated.
 """
 
 import sys
@@ -10,42 +10,28 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
 
 def test_imports():
-    """Test importing our new services."""
+    """Test importing our core services."""
     print("Testing imports...")
 
     try:
-        from app.services.advanced_resume_parser import AdvancedResumeParser
-        print("✅ AdvancedResumeParser imported successfully")
+        from app.services.resume_parser import ResumeParser
+        print("✅ ResumeParser imported successfully")
     except ImportError as e:
-        print(f"❌ Failed to import AdvancedResumeParser: {e}")
+        print(f"❌ Failed to import ResumeParser: {e}")
         return False
 
     try:
-        from app.services.job_description_parser import JobDescriptionParser
-        print("✅ JobDescriptionParser imported successfully")
+        from app.services.role_recommender import RoleRecommender
+        print("✅ RoleRecommender imported successfully")
     except ImportError as e:
-        print(f"❌ Failed to import JobDescriptionParser: {e}")
+        print(f"❌ Failed to import RoleRecommender: {e}")
         return False
 
     try:
-        from app.services.similarity_scorer import SimilarityScorer
-        print("✅ SimilarityScorer imported successfully")
+        from app.services.question_generator import QuestionGenerator
+        print("✅ QuestionGenerator imported successfully")
     except ImportError as e:
-        print(f"❌ Failed to import SimilarityScorer: {e}")
-        return False
-
-    try:
-        from app.services.skills_recommender import SkillsRecommender
-        print("✅ SkillsRecommender imported successfully")
-    except ImportError as e:
-        print(f"❌ Failed to import SkillsRecommender: {e}")
-        return False
-
-    try:
-        from app.models.schemas import HiringCandidateResponse
-        print("✅ HiringCandidateResponse schema imported successfully")
-    except ImportError as e:
-        print(f"❌ Failed to import HiringCandidateResponse: {e}")
+        print(f"❌ Failed to import QuestionGenerator: {e}")
         return False
 
     return True
@@ -55,45 +41,49 @@ def test_instantiation():
     print("\nTesting service instantiation...")
 
     try:
-        from app.services.skills_recommender import SkillsRecommender
-        recommender = SkillsRecommender()
-        print("✅ SkillsRecommender instantiated successfully")
+        from app.services.resume_parser import ResumeParser
+        parser = ResumeParser()
+        print("✅ ResumeParser instantiated successfully")
     except Exception as e:
-        print(f"❌ Failed to instantiate SkillsRecommender: {e}")
+        print(f"❌ Failed to instantiate ResumeParser: {e}")
         return False
 
-    # Test other services (these might fail due to model loading)
     try:
-        from app.services.job_description_parser import JobDescriptionParser
-        parser = JobDescriptionParser()
-        print("✅ JobDescriptionParser instantiated successfully")
+        from app.services.role_recommender import RoleRecommender
+        recommender = RoleRecommender()
+        print("✅ RoleRecommender instantiated successfully")
     except Exception as e:
-        print(f"⚠️  JobDescriptionParser instantiation failed (likely due to model loading): {e}")
+        print(f"❌ Failed to instantiate RoleRecommender: {e}")
+        return False
 
     try:
-        from app.services.similarity_scorer import SimilarityScorer
-        scorer = SimilarityScorer()
-        print("✅ SimilarityScorer instantiated successfully")
+        from app.services.question_generator import QuestionGenerator
+        generator = QuestionGenerator()
+        print("✅ QuestionGenerator instantiated successfully")
     except Exception as e:
-        print(f"⚠️  SimilarityScorer instantiation failed (likely due to model loading): {e}")
+        print(f"❌ Failed to instantiate QuestionGenerator: {e}")
+        return False
 
     return True
 
 def test_router_import():
-    """Test importing the router with our new route."""
+    """Test importing the router."""
     print("\nTesting router import...")
 
     try:
         from app.routers.resume_router import router
         print("✅ Router imported successfully")
 
-        # Check if our new route exists
+        # Check if our core routes exist
         routes = [route.path for route in router.routes]
-        if "/hiring-candidate" in routes:
-            print("✅ hiring-candidate route found")
-        else:
-            print("❌ hiring-candidate route not found")
-            return False
+        expected_routes = ["/generate-questions", "/analyze-resume", "/hiredesk-analyze"]
+
+        for route in expected_routes:
+            if route in routes:
+                print(f"✅ {route} route found")
+            else:
+                print(f"❌ {route} route not found")
+                return False
 
         return True
     except ImportError as e:
@@ -101,7 +91,7 @@ def test_router_import():
         return False
 
 if __name__ == "__main__":
-    print("🔍 Testing our AI-powered hiring candidate services...\n")
+    print("🔍 Testing our core services...\n")
 
     success = True
     success &= test_imports()

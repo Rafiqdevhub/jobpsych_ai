@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 env:
-  DOCKER_IMAGE: rafiq9323/jobpsych-backend # Replace with your Docker Hub username and image name
+  DOCKER_IMAGE: rafiq9323/jobpsych-backend
   DOCKER_TAG: latest
 
 jobs:
@@ -41,9 +41,6 @@ jobs:
             type=sha,prefix={{branch}}-
             type=ref,event=branch
             type=ref,event=tag
-
-      - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y build-essential gcc
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
