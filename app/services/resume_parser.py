@@ -146,7 +146,7 @@ class ResumeParser:
             4. Keep the exact JSON structure as shown
             5. Return only the JSON object, no additional text
             """
-            model = genai.GenerativeModel('gemini-2.0-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             response = await model.generate_content_async(prompt)
             response_text = response.text
 

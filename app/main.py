@@ -22,6 +22,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://jobpsych.vercel.app",
+        "https://hiredesk.vercel.app/",
         "http://localhost:3000",
     ],
     allow_credentials=False, 
@@ -47,18 +48,27 @@ async def root():
             "Role fit analysis for candidate and job description",
             "AI-powered job role suggestions with match percentage",
             "Skill gap and reasoning for each recommendation",
-            "HR interview question generation (AI-powered, based on resume and experience)"
+            "Comprehensive resume scoring (0-100) with detailed breakdown",
+            "Personality insights and work style analysis",
+            "Career path prediction and advancement timeline",
+            "AI-generated interview questions (technical, behavioral, experience)",
+            "Batch processing for multiple resumes",
+            "Resume comparison and candidate ranking"
         ],
         "workflow": [
             "1. Upload resume (PDF/DOCX) and specify target role & job description (for recommendations and fit analysis).",
             "2. Or, upload resume only to generate AI-powered interview questions for HR.",
             "3. System extracts candidate data and analyzes fit for the target role (if provided).",
-            "4. Get top job role suggestions, match scores, skill gap insights, and AI-generated interview questions."
+            "4. Get top job role suggestions, match scores, skill gap insights, and AI-generated interview questions.",
+            "5. Receive comprehensive resume scoring, personality insights, and career path predictions.",
+            "6. Use batch analysis for multiple candidates or compare resumes to rank applicants."
         ],
         "endpoints": {
             "analyze": "/api/analyze-resume",
             "hiredesk": "/api/hiredesk-analyze",
             "generate_questions": "/api/generate-questions",
+            "batch_analyze": "/api/batch-analyze",
+            "compare_resumes": "/api/compare-resumes",
             "health": "/health"
         },
         "example_request": {

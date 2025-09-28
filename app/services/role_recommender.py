@@ -22,7 +22,7 @@ class RoleRecommender:
 
     async def recommend_roles(self, resume_data: Dict[str, Any]) -> List[RoleRecommendation]:
         """Recommend suitable job roles based on resume data."""
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = self._create_role_prompt(resume_data)
         response = await model.generate_content_async(prompt)
         try:
@@ -41,7 +41,7 @@ class RoleRecommender:
 
     async def analyze_role_fit(self, resume_data: Dict[str, Any], target_role: str, job_description: Optional[str] = None) -> List[RoleRecommendation]:
         """Analyze if candidate fits the target role and provide alternatives."""
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = self._create_role_fit_prompt(resume_data, target_role, job_description)
         response = await model.generate_content_async(prompt)
         try:

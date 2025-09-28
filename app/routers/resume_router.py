@@ -1,12 +1,13 @@
-from fastapi import APIRouter, UploadFile, HTTPException, Request, Form
+from fastapi import APIRouter, UploadFile, HTTPException, Request, Form, File
 from app.services.resume_parser import ResumeParser
 from app.services.role_recommender import RoleRecommender
 from app.models.schemas import (
-    ResumeAnalysisResponse, ResumeData
+    ResumeAnalysisResponse, ResumeData, Question, PersonalInfo
 )
 from fastapi import status
 from pydantic import ValidationError
-from typing import Optional
+from typing import Optional, List
+from app.services.advanced_analyzer import AdvancedAnalyzer
 
 
 router = APIRouter()
@@ -158,10 +159,19 @@ async def hiredesk_analyze(
         except Exception:
             questions = []
 
+        # Generate advanced analysis
+        advanced_analyzer = AdvancedAnalyzer()
+        resume_score = await advanced_analyzer.calculate_resume_score(resume_data)
+        personality_insights = await advanced_analyzer.analyze_personality(resume_data)
+        career_path = await advanced_analyzer.predict_career_path(resume_data)
+
         response = ResumeAnalysisResponse(
             resumeData=ResumeData(**resume_data),
             questions=questions,
             roleRecommendations=role_recommendations,
+            resumeScore=resume_score,
+            personalityInsights=personality_insights,
+            careerPath=career_path
         )
         return {
             "fit_status": fit_status,
@@ -169,7 +179,10 @@ async def hiredesk_analyze(
             "resumeData": response.resumeData,
             "roleRecommendations": response.roleRecommendations,
             "questions": response.questions,
-            "best_fit_role": best_fit_role_name
+            "best_fit_role": best_fit_role_name,
+            "resumeScore": response.resumeScore,
+            "personalityInsights": response.personalityInsights,
+            "careerPath": response.careerPath
         }
     except ValidationError as e:
         raise HTTPException(
@@ -185,4 +198,115 @@ async def hiredesk_analyze(
         raise HTTPException(status_code=500, detail=error_message)
 
 
-        raise HTTPException(status_code=500, detail=error_message)
+@router.post("/batch-analyze", response_model=List[ResumeAnalysisResponse])
+async def batch_analyze_resumes(
+    files: List[UploadFile],
+    request: Request,
+    target_role: Optional[str] = Form(None),
+    job_description: Optional[str] = Form(None)
+):
+    """Analyze multiple resumes in batch"""
+    if len(files) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 resumes allowed per batch")
+
+    results = []
+
+    for file in files:
+        try:
+            parser = ResumeParser()
+            resume_data = await parser.parse(file)
+
+            recommender = RoleRecommender()
+            if target_role:
+                role_recommendations = await recommender.analyze_role_fit(resume_data, target_role, job_description)
+            else:
+                role_recommendations = await recommender.recommend_roles(resume_data)
+
+            # Generate questions
+            question_gen = QuestionGenerator()
+            raw_questions = await question_gen.generate(resume_data)
+            questions = [Question(**q) if isinstance(q, dict) else q for q in raw_questions]
+
+            # Advanced analysis
+            advanced_analyzer = AdvancedAnalyzer()
+            resume_score = await advanced_analyzer.calculate_resume_score(resume_data)
+            personality_insights = await advanced_analyzer.analyze_personality(resume_data)
+            career_path = await advanced_analyzer.predict_career_path(resume_data)
+
+            response = ResumeAnalysisResponse(
+                resumeData=ResumeData(**resume_data),
+                questions=questions,
+                roleRecommendations=role_recommendations,
+                resumeScore=resume_score,
+                personalityInsights=personality_insights,
+                careerPath=career_path
+            )
+            results.append(response)
+
+        except Exception as e:
+            # For batch processing, continue with other files but log errors
+            error_response = ResumeAnalysisResponse(
+                resumeData=ResumeData(
+                    personalInfo=PersonalInfo(name=f"Error processing {file.filename}"),
+                    workExperience=[],
+                    education=[],
+                    skills=[],
+                    highlights=[f"Error: {str(e)}"]
+                ),
+                questions=[],
+                roleRecommendations=[]
+            )
+            results.append(error_response)
+
+    return results
+
+@router.post("/compare-resumes")
+async def compare_resumes(
+    files: List[UploadFile] = File(...),
+    request: Request = None
+):
+    """Compare multiple resumes and rank them"""
+    if len(files) < 2 or len(files) > 5:
+        raise HTTPException(status_code=400, detail="Provide 2-5 resumes for comparison")
+
+    candidates = []
+
+    for file in files:
+        try:
+            parser = ResumeParser()
+            resume_data = await parser.parse(file)
+
+            advanced_analyzer = AdvancedAnalyzer()
+            score = await advanced_analyzer.calculate_resume_score(resume_data)
+
+            candidates.append({
+                "filename": file.filename,
+                "resumeData": ResumeData(**resume_data),
+                "score": score.overall_score,
+                "strengths": score.strengths,
+                "weaknesses": score.weaknesses
+            })
+
+        except Exception as e:
+            candidates.append({
+                "filename": file.filename,
+                "error": str(e),
+                "score": 0
+            })
+
+    # Rank candidates by score
+    ranked_candidates = sorted(candidates, key=lambda x: x.get("score", 0), reverse=True)
+
+    return {
+        "comparison_summary": {
+            "total_candidates": len(candidates),
+            "highest_score": max([c.get("score", 0) for c in candidates]),
+            "average_score": sum([c.get("score", 0) for c in candidates]) / len(candidates)
+        },
+        "ranked_candidates": ranked_candidates,
+        "recommendations": [
+            "Consider top 3 candidates for interviews",
+            "Review candidates with scores > 80 for immediate consideration",
+            "Candidates with scores < 60 may need additional training"
+        ]
+    }
