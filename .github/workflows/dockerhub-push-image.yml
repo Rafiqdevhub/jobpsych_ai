@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 env:
-  DOCKER_IMAGE: rafiq9323/jobpsych-backend
+  DOCKER_IMAGE: rafiq9323/jobpsych-ai
   DOCKER_TAG: latest
 
 jobs:
