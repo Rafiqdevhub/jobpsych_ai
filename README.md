@@ -1,331 +1,664 @@
-# JobPsych Backend
+# JobPsych AI
 
-AI-powered resume analysis and job role recommendation service for HR professionals. This FastAPI application provides comprehensive resume parsing, job role recommendations, skill gap analysis, and interview question generation.
+AI-powered resume analysis and job role recommendation service for HR professionals. This FastAPI application provides comprehensive resume parsing, job role recommendations, skill gap analysis, interview question generation, and advanced HR analytics.AI-powered resume analysis and job role recommendation service for HR professionals. This FastAPI application provides comprehensive resume parsing, job role recommendations, skill gap analysis, and interview question generation.
 
 ## 🚀 Features
 
 - **Resume Parsing**: Extract information from PDF and DOCX resume files
-- **Job Role Recommendations**: AI-powered suggestions for best-fitting job roles
+- **Job Role Recommendations**: AI-powered suggestions for best-fitting job roles with match percentages
+
 - **Skill Gap Analysis**: Identify missing skills and provide learning recommendations
-- **Interview Question Generation**: Generate tailored interview questions based on resume and job requirements
-- **Role Fit Analysis**: Analyze candidate fit for specific job roles
+- **Interview Question Generation**: Generate tailored interview questions (technical, behavioral, experience-based)
+
+- **Role Fit Analysis**: Analyze candidate fit for specific job roles with detailed reasoning
+- **Resume Scoring**: Comprehensive scoring (0-100) with breakdown by technical, experience, education, and communication skills
 - **RESTful API**: Clean, documented API endpoints
 
-## 📋 Prerequisites
+- **Personality Insights**: AI-powered personality analysis and work style assessment
+
+- **Career Path Prediction**: Predict career advancement and timeline
+
+- **Batch Processing**: Analyze multiple resumes simultaneously
+
+- **Resume Comparison**: Compare and rank multiple candidates- Python 3.9 or higher
+
+- **RESTful API**: Clean, documented API endpoints with automatic OpenAPI documentation- Google Gemini API key (for AI features)
+
+- uv package manager (recommended) or pip
+
+## 🛠️ Installation
 
 - Python 3.9 or higher
+
 - Google Gemini API key (for AI features)
+
+### 1. Clone the Repository
+
 - uv package manager (recommended) or pip
+
+  ```bash
+
+  ```
 
 ## 🛠️ Installation
 
 ### 1. Clone the Repository
 
-```bash
-git clone https://github.com/Rafiqdevhub/AI-Resume-Analayzer_Backend.git
-cd AI-Resume-Analayzer_Backend
-```
+````bash
+git clone https://github.com/Rafiqdevhub/jobpsych_ai.git
+
+cd jobpsych_ai```bash
+
+```# Copy the environment template
+
+cp .env.example .env
 
 ### 2. Set Up Environment Variables
 
-```bash
-# Copy the environment template
-cp .env.example .env
+# Edit .env and add your Google Gemini API key
+
+```bashGOOGLE_API_KEY="your_actual_api_key_here"
+
+# Copy the environment templateHOST="localhost"
+
+cp .env.example .envPORT="8000"
+
+````
 
 # Edit .env and add your Google Gemini API key
-GOOGLE_API_KEY="your_actual_api_key_here"
-HOST="localhost"
-PORT="8000"
-```
 
-### 3. Install Dependencies
+GOOGLE_API_KEY="your_actual_api_key_here"### 3. Install Dependencies
+
+HOST="localhost"
+
+PORT="8000"#### Using uv (Recommended)
+
+````
+
+```bash
+
+### 3. Install Dependencies# Install uv if you don't have it
+
+pip install uv
 
 #### Using uv (Recommended)
 
-```bash
-# Install uv if you don't have it
-pip install uv
-
 # Install dependencies
-uv sync
-```
+
+```bashuv sync
+
+# Install uv if you don't have it```
+
+pip install uv
 
 #### Using pip
 
-```bash
-# Create virtual environment
+# Install dependencies
+
+uv sync```bash
+
+```# Create virtual environment
+
 python -m venv .venv
 
+#### Using pip
+
 # Activate virtual environment
-# On Windows:
-.venv\Scripts\activate
-# On macOS/Linux:
+
+```bash# On Windows:
+
+# Create virtual environment.venv\Scripts\activate
+
+python -m venv .venv# On macOS/Linux:
+
 source .venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
-```
+# Activate virtual environment
+
+# On Windows:# Install dependencies
+
+.venv\Scripts\activatepip install -r requirements.txt
+
+# On macOS/Linux:```
+
+source .venv/bin/activate
 
 ## 🚀 Running the Application
 
-### Development Mode
+# Install dependencies
+
+pip install -r requirements.txt### Development Mode
+
+````
 
 #### Using uv
 
+## 🚀 Running the Application
+
 ```bash
-uv run uvicorn app.main:app --port 8000 --reload
+
+### Development Modeuv run uvicorn app.main:app --port 8000 --reload
+
 ```
 
-#### Using pip
+````bash
 
-```bash
-# Activate virtual environment first
+uv run uvicorn app.main:app --port 8000 --reload```bash
+
+```# Activate virtual environment first
+
 .venv\Scripts\activate  # Windows
-source .venv/bin/activate  # macOS/Linux
 
-uvicorn app.main:app --port 8000 --reload
+#### Using pipsource .venv/bin/activate  # macOS/Linux
+
+
+
+```bashuvicorn app.main:app --port 8000 --reload
+
+# Activate virtual environment first```
+
+.venv\Scripts\activate  # Windows
+
+source .venv/bin/activate  # macOS/Linux### Production Mode
+
+
+
+uvicorn app.main:app --port 8000 --reload#### Using uv
+
+````
+
+```bash
+
+### Production Modeuv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+
 ```
-
-### Production Mode
 
 #### Using uv
 
-```bash
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
 #### Using pip
 
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
+````bash
+
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000```bash
+
+```uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+````
+
+#### Using pip
 
 ### Using Docker
 
-#### Build and Run with Docker Compose
+```bash
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000#### Build and Run with Docker Compose
+
+```
 
 ```bash
-docker-compose up --build
+
+### Using Dockerdocker-compose up --build
+
 ```
+
+#### Build and Run with Docker Compose
 
 #### Build and Run with Docker
 
-```bash
-# Build the image
+````bash
+
+docker-compose up --build```bash
+
+```# Build the image
+
 docker build -t jobpsych-backend .
 
+#### Build and Run with Docker
+
 # Run the container
-docker run -p 8000:8000 --env-file .env jobpsych-backend
-```
+
+```bashdocker run -p 8000:8000 --env-file .env jobpsych-backend
+
+# Build the image```
+
+docker build -t jobpsych-ai .
 
 ## 📖 API Documentation
 
-Once the application is running, visit:
+# Run the container
+
+docker run -p 8000:8000 --env-file .env jobpsych-aiOnce the application is running, visit:
+
+````
 
 - **Interactive API Docs (Swagger UI)**: http://localhost:8000/docs
-- **ReDoc Documentation**: http://localhost:8000/redoc
+
+## 📖 API Documentation- **ReDoc Documentation**: http://localhost:8000/redoc
+
 - **Health Check**: http://localhost:8000/
+
+Once the application is running, visit:
 
 ## 🔌 API Endpoints
 
-### Core Endpoints
+- **Interactive API Docs (Swagger UI)**: http://localhost:8000/docs
 
-| Method | Endpoint                  | Description                                     |
+- **ReDoc Documentation**: http://localhost:8000/redoc### Core Endpoints
+
+- **Health Check**: http://localhost:8000/health
+
+- **API Info**: http://localhost:8000/| Method | Endpoint | Description |
+
 | ------ | ------------------------- | ----------------------------------------------- |
-| `GET`  | `/`                       | Health check and API information                |
-| `GET`  | `/health`                 | Detailed health check with API status           |
-| `POST` | `/api/generate-questions` | Generate interview questions from resume        |
-| `POST` | `/api/analyze-resume`     | Analyze resume and provide role recommendations |
-| `POST` | `/api/hiredesk-analyze`   | Advanced HR analysis with fit assessment        |
 
-### Request Examples
+## 🔌 API Endpoints| `GET` | `/` | Health check and API information |
 
-#### Generate Interview Questions
+| `GET` | `/health` | Detailed health check with API status |
 
-```bash
-curl -X POST "http://localhost:8000/api/generate-questions" \
+### Core Endpoints| `POST` | `/api/generate-questions` | Generate interview questions from resume |
+
+| `POST` | `/api/analyze-resume` | Analyze resume and provide role recommendations |
+
+| Method | Endpoint | Description || `POST` | `/api/hiredesk-analyze` | Advanced HR analysis with fit assessment |
+
+| ------ | ------------------------- | ----------------------------------------------- |
+
+| `GET` | `/` | API information and health status |### Request Examples
+
+| `GET` | `/health` | Detailed health check with API configuration |
+
+| `POST` | `/api/analyze-resume` | Basic resume analysis with role recommendations |#### Generate Interview Questions
+
+| `POST` | `/api/hiredesk-analyze` | Advanced HR analysis with fit assessment |
+
+| `POST` | `/api/batch-analyze` | Batch processing for multiple resumes |```bash
+
+| `POST` | `/api/compare-resumes` | Compare and rank multiple resumes |curl -X POST "http://localhost:8000/api/generate-questions" \
+
      -F "file=@resume.pdf"
-```
 
-#### Analyze Resume
+### Request Examples```
 
-```bash
-curl -X POST "http://localhost:8000/api/analyze-resume" \
-     -F "file=@resume.pdf" \
-     -F "target_role=Software Engineer" \
-     -F "job_description=Job description text here..."
-```
+#### Basic Resume Analysis#### Analyze Resume
 
-#### Advanced HR Analysis
+`bash`bash
 
-```bash
-curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
-     -F "file=@resume.pdf" \
-     -F "target_role=Product Manager" \
-     -F "job_description=Detailed job description..."
-```
+curl -X POST "http://localhost:8000/api/analyze-resume" \curl -X POST "http://localhost:8000/api/analyze-resume" \
 
-## 🏗️ Project Structure
+     -F "file=@resume.pdf" \     -F "file=@resume.pdf" \
 
-```
-├── app/
-│   ├── main.py                 # FastAPI application setup
-│   ├── routers/
-│   │   └── resume_router.py    # API route definitions
-│   ├── services/
-│   │   ├── resume_parser.py    # Resume parsing logic
+     -F "target_role=Software Engineer" \     -F "target_role=Software Engineer" \
+
+     -F "job_description=Develop and maintain web applications..."     -F "job_description=Job description text here..."
+
+````
+
+
+
+#### Advanced HR Analysis#### Advanced HR Analysis
+
+
+
+```bash```bash
+
+curl -X POST "http://localhost:8000/api/hiredesk-analyze" \curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
+
+     -F "file=@resume.pdf" \     -F "file=@resume.pdf" \
+
+     -F "target_role=Product Manager" \     -F "target_role=Product Manager" \
+
+     -F "job_description=Detailed job description..."     -F "job_description=Detailed job description..."
+
+````
+
+#### Batch Analysis (Multiple Resumes)## 🏗️ Project Structure
+
+`bash`
+
+curl -X POST "http://localhost:8000/api/batch-analyze" \├── app/
+
+     -F "files=@resume1.pdf" \│   ├── main.py                 # FastAPI application setup
+
+     -F "files=@resume2.pdf" \│   ├── routers/
+
+     -F "target_role=Data Scientist" \│   │   └── resume_router.py    # API route definitions
+
+     -F "job_description=Analyze data and build ML models..."│   ├── services/
+
+````│ │   ├── resume_parser.py    # Resume parsing logic
+
 │   │   ├── question_generator.py # Interview question generation
-│   │   └── role_recommender.py # Job role recommendations
-│   └── models/
-│       └── schemas.py          # Pydantic models and schemas
-├── .env.example               # Environment variables template
-├── dockerfile                 # Docker container configuration
-├── docker-compose.yml         # Docker Compose setup
-├── pyproject.toml            # Project configuration
-├── requirements.txt          # Python dependencies
-└── test_services.py          # Service testing script
-```
 
-## 🔧 Configuration
+#### Compare Resumes│   │   └── role_recommender.py # Job role recommendations
+
+│   └── models/
+
+```bash│       └── schemas.py          # Pydantic models and schemas
+
+curl -X POST "http://localhost:8000/api/compare-resumes" \├── .env.example               # Environment variables template
+
+     -F "files=@resume1.pdf" \├── dockerfile                 # Docker container configuration
+
+     -F "files=@resume2.pdf" \├── docker-compose.yml         # Docker Compose setup
+
+     -F "files=@resume3.pdf"├── pyproject.toml            # Project configuration
+
+```├── requirements.txt          # Python dependencies
+
+└── test_services.py          # Service testing script
+
+## 🏗️ Project Structure```
+
+
+
+```## 🔧 Configuration
+
+├── app/
+
+│   ├── main.py                 # FastAPI application setup and CORS### Environment Variables
+
+│   ├── routers/
+
+│   │   └── resume_router.py    # API route definitions and handlers| Variable         | Description                           | Required |
+
+│   ├── services/| ---------------- | ------------------------------------- | -------- |
+
+│   │   ├── resume_parser.py    # Resume parsing logic (PDF/DOCX)| `GOOGLE_API_KEY` | Google Gemini API key for AI features | Yes      |
+
+│   │   ├── question_generator.py # Interview question generation| `HOST`           | Server host (default: localhost)      | No       |
+
+│   │   ├── role_recommender.py # Job role recommendations| `PORT`           | Server port (default: 8000)           | No       |
+
+│   │   └── advanced_analyzer.py # Advanced analysis (scoring, personality, career)
+
+│   └── models/### CORS Configuration
+
+│       └── schemas.py          # Pydantic models and response schemas
+
+├── .env.example               # Environment variables templateThe application is configured to accept requests from:
+
+├── dockerfile                 # Docker container configuration
+
+├── docker-compose.yml         # Docker Compose setup- `https://jobpsych.vercel.app` (Production frontend)
+
+├── pyproject.toml            # Project configuration and dependencies- `http://localhost:3000` (Development frontend)
+
+├── requirements.txt          # Python dependencies (legacy)
+
+├── test_services.py          # Service testing and validation script## 🧪 Testing
+
+├── vercel.json               # Vercel deployment configuration
+
+└── uv.lock                  # uv dependency lock file### Run Service Tests
+
+````
+
+````bash
+
+## 🔧 Configuration# Using uv
+
+uv run python test_services.py
 
 ### Environment Variables
 
-| Variable         | Description                           | Required |
-| ---------------- | ------------------------------------- | -------- |
-| `GOOGLE_API_KEY` | Google Gemini API key for AI features | Yes      |
-| `HOST`           | Server host (default: localhost)      | No       |
-| `PORT`           | Server port (default: 8000)           | No       |
+# Using pip
 
-### CORS Configuration
+| Variable         | Description                           | Required | Default |python test_services.py
 
-The application is configured to accept requests from:
+| ---------------- | ------------------------------------- | -------- | ------- |```
 
-- `https://jobpsych.vercel.app` (Production frontend)
+| `GOOGLE_API_KEY` | Google Gemini API key for AI features | Yes      | -       |
+
+| `HOST`           | Server host                           | No       | localhost |### API Testing
+
+| `PORT`           | Server port                           | No       | 8000    |
+
+```bash
+
+### CORS Configuration# Health check
+
+curl http://localhost:8000/
+
+The application accepts requests from:
+
+# Get API documentation
+
+- `https://jobpsych.vercel.app` (Production frontend)curl http://localhost:8000/docs
+
+- `https://hiredesk.vercel.app/` (HR Dashboard)```
+
 - `http://localhost:3000` (Development frontend)
 
+## 🚀 Deployment
+
 ## 🧪 Testing
+
+### Docker Deployment
 
 ### Run Service Tests
 
 ```bash
-# Using uv
+
+```bash# Build the image
+
+# Using uvdocker build -t jobpsych-backend .
+
 uv run python test_services.py
 
-# Using pip
-python test_services.py
-```
-
-### API Testing
-
-```bash
-# Health check
-curl http://localhost:8000/
-
-# Get API documentation
-curl http://localhost:8000/docs
-```
-
-## 🚀 Deployment
-
-### Docker Deployment
-
-```bash
-# Build the image
-docker build -t jobpsych-backend .
-
 # Run with environment variables
-docker run -p 8000:8000 --env-file .env jobpsych-backend
-```
+
+# Using pipdocker run -p 8000:8000 --env-file .env jobpsych-backend
+
+python test_services.py```
+
+````
 
 ### Docker Compose Deployment
 
-```bash
-docker-compose up -d
-```
+### API Testing
+
+````bash
+
+```bashdocker-compose up -d
+
+# Health check```
+
+curl http://localhost:8000/
 
 ### Vercel Deployment
 
-The application includes Vercel configuration for serverless deployment:
+# Detailed health check
 
-```bash
-vercel --prod
-```
+curl http://localhost:8000/healthThe application includes Vercel configuration for serverless deployment:
 
-## 🔄 CI/CD Pipeline
 
-The project includes GitHub Actions for automated:
 
-- **Testing**: Runs on every push and pull request
-- **Building**: Creates Docker images
-- **Deployment**: Pushes to Docker Hub
+# Get API documentation```bash
 
-### Pipeline Features
+curl http://localhost:8000/docsvercel --prod
 
-- Multi-stage Docker builds
+````
+
+## 🚀 Deployment## 🔄 CI/CD Pipeline
+
+### Docker DeploymentThe project includes GitHub Actions for automated:
+
+````bash- **Testing**: Runs on every push and pull request
+
+# Build the image- **Building**: Creates Docker images
+
+docker build -t jobpsych-ai .- **Deployment**: Pushes to Docker Hub
+
+
+
+# Run with environment variables### Pipeline Features
+
+docker run -p 8000:8000 --env-file .env jobpsych-ai
+
+```- Multi-stage Docker builds
+
 - Automated testing
-- Security scanning
+
+### Docker Compose Deployment- Security scanning
+
 - Production deployments
 
-## 📦 Dependencies
+```bash
+
+docker-compose up -d## 📦 Dependencies
+
+````
 
 ### Core Dependencies
 
+### Vercel Deployment
+
 - **FastAPI**: Modern web framework for building APIs
-- **Uvicorn**: ASGI server for FastAPI
+
+The application includes Vercel configuration for serverless deployment:- **Uvicorn**: ASGI server for FastAPI
+
 - **Pydantic**: Data validation and serialization
-- **Google Generative AI**: AI-powered text generation
 
-### Document Processing
+````bash- **Google Generative AI**: AI-powered text generation
 
-- **PyPDF2**: PDF file processing
-- **python-docx**: Word document processing
-- **pdfplumber**: Advanced PDF text extraction
+# Install Vercel CLI
 
-### Utilities
+npm install -g vercel### Document Processing
 
-- **python-dotenv**: Environment variable management
+
+
+# Deploy- **PyPDF2**: PDF file processing
+
+vercel --prod- **python-docx**: Word document processing
+
+```- **pdfplumber**: Advanced PDF text extraction
+
+
+
+## 🔄 CI/CD Pipeline### Utilities
+
+
+
+The project includes GitHub Actions for automated:- **python-dotenv**: Environment variable management
+
 - **python-multipart**: File upload handling
-- **slowapi**: Rate limiting
 
-## 🤝 Contributing
+- **Testing**: Runs on every push and pull request- **slowapi**: Rate limiting
 
-1. Fork the repository
+- **Building**: Creates Docker images
+
+- **Deployment**: Pushes to Docker Hub as `rafiq9323/jobpsych-ai`## 🤝 Contributing
+
+
+
+### Pipeline Features1. Fork the repository
+
 2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes and add tests
-4. Run tests: `python test_services.py`
-5. Commit your changes: `git commit -am 'Add new feature'`
-6. Push to the branch: `git push origin feature-name`
+
+- Multi-stage Docker builds with uv3. Make your changes and add tests
+
+- Automated testing with service validation4. Run tests: `python test_services.py`
+
+- Security scanning5. Commit your changes: `git commit -am 'Add new feature'`
+
+- Production deployments to Docker Hub6. Push to the branch: `git push origin feature-name`
+
 7. Submit a pull request
+
+## 📦 Dependencies
 
 ## 📝 License
 
+### Core Dependencies
+
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🆘 Troubleshooting
+- **FastAPI**: Modern web framework for building APIs
 
-### Common Issues
+- **Uvicorn**: ASGI server for FastAPI## 🆘 Troubleshooting
 
-#### 1. "Failed to canonicalize script path" Error
+- **Pydantic**: Data validation and serialization
 
-```bash
-# Try running with explicit app directory
-uvicorn app.main:app --port 8000 --reload --app-dir .
-```
+- **Google Generative AI**: AI-powered text generation### Common Issues
+
+
+
+### Document Processing#### 1. "Failed to canonicalize script path" Error
+
+
+
+- **PyPDF2**: PDF file processing```bash
+
+- **python-docx**: Word document processing# Try running with explicit app directory
+
+- **pdfplumber**: Advanced PDF text extractionuvicorn app.main:app --port 8000 --reload --app-dir .
+
+````
+
+### Utilities
 
 #### 2. Missing Google API Key
 
-```bash
-# Check your .env file
+- **python-dotenv**: Environment variable management
+
+- **python-multipart**: File upload handling```bash
+
+- **slowapi**: Rate limiting# Check your .env file
+
 cat .env
-# Should contain: GOOGLE_API_KEY="your_key_here"
-```
+
+#
+
+# Clear Docker cache
+
+## 🆘 Troubleshootingdocker system prune -a
+
+# Rebuild
+
+### Common Issuesdocker-compose up --build --force-recreate
+
+`````
+
+#### 1. "Failed to canonicalize script path" Error
+
+## 📞 Support
+
+````bash
+
+# Try running with explicit app directoryFor support and questions:
+
+uvicorn app.main:app --port 8000 --reload --app-dir .
+
+```- Create an issue on GitHub
+
+- Check the API documentation at `/docs`
+
+#### 2. Missing Google API Key- Review the health endpoint at `/health`
+
+
+
+```bash## 🔄 Recent Updates
+
+# Check your .env file
+
+cat .env- **v2.0.0**: Complete rewrite with FastAPI, improved AI integration
+
+# Should contain: GOOGLE_API_KEY="your_key_here"- Removed heavy ML dependencies for better performance
+
+```- Added comprehensive error handling and validation
+
+- Enhanced Docker and CI/CD setup
 
 #### 3. Port Already in Use
 
+---
+
 ```bash
-# Use a different port
+
+# Use a different port**Built with ❤️ for HR professionals and job seekers**</content>
+
 uvicorn app.main:app --port 8001 --reload
-```
+````
 
 #### 4. Docker Build Issues
 
@@ -334,6 +667,19 @@ uvicorn app.main:app --port 8001 --reload
 docker system prune -a
 # Rebuild
 docker-compose up --build --force-recreate
+```
+
+#### 5. Import Errors
+
+```bash
+# Ensure you're in the correct directory
+cd /path/to/AI-Resume-Analayzer_Backend
+
+# Install dependencies
+uv sync
+
+# Run with proper Python path
+PYTHONPATH=. uvicorn app.main:app --reload
 ```
 
 ## 📞 Support
@@ -347,10 +693,13 @@ For support and questions:
 ## 🔄 Recent Updates
 
 - **v2.0.0**: Complete rewrite with FastAPI, improved AI integration
-- Removed heavy ML dependencies for better performance
-- Added comprehensive error handling and validation
-- Enhanced Docker and CI/CD setup
+- Added batch processing for multiple resumes
+- Enhanced resume comparison and ranking
+- Added comprehensive scoring and personality analysis
+- Improved Docker setup with uv package manager
+- Added Vercel deployment support
 
 ---
 
-**Built with ❤️ for HR professionals and job seekers**</content>
+**Built with ❤️ for HR professionals and job seekers**
+`````
