@@ -66,7 +66,6 @@ async def root():
         "endpoints": {
             "analyze": "/api/analyze-resume",
             "hiredesk": "/api/hiredesk-analyze",
-            "generate_questions": "/api/generate-questions",
             "batch_analyze": "/api/batch-analyze",
             "compare_resumes": "/api/compare-resumes",
             "health": "/health"
