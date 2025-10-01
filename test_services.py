@@ -1,105 +1,147 @@
 #!/usr/bin/env python3
 """
 Test script to verify our core services can be imported and instantiated.
+Uses pytest for proper testing framework.
 """
 
-import sys
+import pytest
 import os
+import sys
+from unittest.mock import patch
 
 # Add the app directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
 
-def test_imports():
+
+class TestImports:
     """Test importing our core services."""
-    print("Testing imports...")
 
-    try:
+    def test_resume_parser_import(self):
+        """Test importing ResumeParser."""
         from app.services.resume_parser import ResumeParser
-        print("✅ ResumeParser imported successfully")
-    except ImportError as e:
-        print(f"❌ Failed to import ResumeParser: {e}")
-        return False
+        assert ResumeParser is not None
 
-    try:
+    def test_role_recommender_import(self):
+        """Test importing RoleRecommender."""
         from app.services.role_recommender import RoleRecommender
-        print("✅ RoleRecommender imported successfully")
-    except ImportError as e:
-        print(f"❌ Failed to import RoleRecommender: {e}")
-        return False
+        assert RoleRecommender is not None
 
-    try:
+    def test_question_generator_import(self):
+        """Test importing QuestionGenerator."""
         from app.services.question_generator import QuestionGenerator
-        print("✅ QuestionGenerator imported successfully")
-    except ImportError as e:
-        print(f"❌ Failed to import QuestionGenerator: {e}")
-        return False
+        assert QuestionGenerator is not None
 
-    return True
+    def test_advanced_analyzer_import(self):
+        """Test importing AdvancedAnalyzer."""
+        from app.services.advanced_analyzer import AdvancedAnalyzer
+        assert AdvancedAnalyzer is not None
 
-def test_instantiation():
+
+class TestInstantiation:
     """Test instantiating our services."""
-    print("\nTesting service instantiation...")
 
-    try:
+    @patch.dict(os.environ, {'GOOGLE_API_KEY': 'test_key'})
+    def test_resume_parser_instantiation(self):
+        """Test instantiating ResumeParser with mocked API key."""
         from app.services.resume_parser import ResumeParser
         parser = ResumeParser()
-        print("✅ ResumeParser instantiated successfully")
-    except Exception as e:
-        print(f"❌ Failed to instantiate ResumeParser: {e}")
-        return False
+        assert parser is not None
 
-    try:
+    @patch.dict(os.environ, {'GOOGLE_API_KEY': 'test_key'})
+    def test_role_recommender_instantiation(self):
+        """Test instantiating RoleRecommender."""
         from app.services.role_recommender import RoleRecommender
         recommender = RoleRecommender()
-        print("✅ RoleRecommender instantiated successfully")
-    except Exception as e:
-        print(f"❌ Failed to instantiate RoleRecommender: {e}")
-        return False
+        assert recommender is not None
 
-    try:
+    @patch.dict(os.environ, {'GOOGLE_API_KEY': 'test_key'})
+    def test_question_generator_instantiation(self):
+        """Test instantiating QuestionGenerator."""
         from app.services.question_generator import QuestionGenerator
         generator = QuestionGenerator()
-        print("✅ QuestionGenerator instantiated successfully")
-    except Exception as e:
-        print(f"❌ Failed to instantiate QuestionGenerator: {e}")
-        return False
+        assert generator is not None
 
-    return True
+    @patch.dict(os.environ, {'GOOGLE_API_KEY': 'test_key'})
+    def test_advanced_analyzer_instantiation(self):
+        """Test instantiating AdvancedAnalyzer."""
+        from app.services.advanced_analyzer import AdvancedAnalyzer
+        analyzer = AdvancedAnalyzer()
+        assert analyzer is not None
 
-def test_router_import():
-    """Test importing the router."""
-    print("\nTesting router import...")
 
-    try:
+class TestRouter:
+    """Test router functionality."""
+
+    def test_router_import(self):
+        """Test importing the router."""
         from app.routers.resume_router import router
-        print("✅ Router imported successfully")
+        assert router is not None
 
-        # Check if our core routes exist
+    def test_router_routes(self):
+        """Test that expected routes exist."""
+        from app.routers.resume_router import router
+
         routes = [route.path for route in router.routes]
-        expected_routes = ["/generate-questions", "/analyze-resume", "/hiredesk-analyze"]
+        expected_routes = ["/analyze-resume", "/hiredesk-analyze", "/batch-analyze", "/compare-resumes"]
 
         for route in expected_routes:
-            if route in routes:
-                print(f"✅ {route} route found")
-            else:
-                print(f"❌ {route} route not found")
-                return False
+            assert route in routes, f"Route {route} not found in router routes: {routes}"
 
-        return True
-    except ImportError as e:
-        print(f"❌ Failed to import router: {e}")
-        return False
 
-if __name__ == "__main__":
-    print("🔍 Testing our core services...\n")
+class TestSchemas:
+    """Test that schemas can be imported and used."""
 
-    success = True
-    success &= test_imports()
-    success &= test_instantiation()
-    success &= test_router_import()
+    def test_resume_data_schema(self):
+        """Test ResumeData schema."""
+        from app.models.schemas import ResumeData, PersonalInfo
 
-    if success:
-        print("\n🎉 All tests passed! The services should work correctly.")
-    else:
-        print("\n❌ Some tests failed. Please check the error messages above.")
-        sys.exit(1)
+        personal_info = PersonalInfo(name="John Doe")
+        resume_data = ResumeData(
+            personalInfo=personal_info,
+            workExperience=[],
+            education=[],
+            skills=[],
+            highlights=[]
+        )
+        assert resume_data.personalInfo.name == "John Doe"
+
+    def test_question_schema(self):
+        """Test Question schema."""
+        from app.models.schemas import Question
+
+        question = Question(
+            type="technical",
+            question="What is Python?",
+            context="Programming language"
+        )
+        assert question.type == "technical"
+        assert question.question == "What is Python?"
+
+
+class TestFastAPIApp:
+    """Test FastAPI application endpoints."""
+
+    @pytest.fixture
+    def client(self):
+        """Create a test client for the FastAPI app."""
+        from fastapi.testclient import TestClient
+        from app.main import app
+        return TestClient(app)
+
+    def test_root_endpoint(self, client):
+        """Test the root endpoint returns correct response."""
+        response = client.get("/")
+        assert response.status_code == 200
+        data = response.json()
+        assert "message" in data
+        assert "JobPsych" in data["message"]
+        assert "endpoints" in data
+
+    @patch.dict(os.environ, {'GOOGLE_API_KEY': 'test_key'})
+    def test_health_endpoint(self, client):
+        """Test the health endpoint."""
+        response = client.get("/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"
+        assert data["api_configured"] is True
