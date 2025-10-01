@@ -11,7 +11,7 @@ except ImportError:
 from app.routers import resume_router
 
 app = FastAPI(
-    title="JobPsych Backend", 
+    title="JobPsych ai",
     version="2.0.0",
     description="AI-powered resume analysis and job role recommendation service and HR interview question generation for HR professionals.",
 )
