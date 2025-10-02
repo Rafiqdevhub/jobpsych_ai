@@ -1,0 +1,1 @@
+from app.main import app; print("Rate Limiter configured:", hasattr(app.state, "limiter")); print("Limiter instance:", app.state.limiter.__class__.__name__ if hasattr(app.state, "limiter") else "None")

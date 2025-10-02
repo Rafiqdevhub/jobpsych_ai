@@ -9,9 +9,14 @@ from fastapi import status
 from pydantic import ValidationError
 from typing import Optional, List
 from app.services.advanced_analyzer import AdvancedAnalyzer
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 
 router = APIRouter()
+
+# Initialize rate limiter for IP-based limiting
+limiter = Limiter(key_func=get_remote_address)
 
 def format_validation_error(error: ValidationError) -> str:
     error_messages = []
@@ -26,6 +31,7 @@ def format_validation_error(error: ValidationError) -> str:
 
 
 @router.post("/analyze-resume", response_model=ResumeAnalysisResponse)
+@limiter.limit("5/day")  # 5 files per IP address per day
 async def analyze_resume(
     file: UploadFile,
     request: Request,
