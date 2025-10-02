@@ -47,8 +47,8 @@ app.include_router(resume_router.router, prefix="/api", tags=["resume"])
 @app.get("/")
 async def root():
     return {
-        "app_name": "JobPsych AI - HR Intelligence Platform",
-        "message": " AI-Powered Resume Analysis & Job Role Recommendation Service",
+        "app_name": "JobPsych AI - Role Suggestion and HR Intelligence Platform",
+        "message": "AI-Powered Resume Analysis & Job Role Recommendation Service",
         "status": "running",
         "version": "2.0.0",
         "description": (

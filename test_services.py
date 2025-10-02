@@ -134,8 +134,12 @@ class TestFastAPIApp:
         assert response.status_code == 200
         data = response.json()
         assert "message" in data
-        assert "JobPsych" in data["message"]
-        assert "endpoints" in data
+        assert "AI-Powered Resume Analysis" in data["message"]
+        assert "app_name" in data
+        assert "JobPsych" in data["app_name"]
+        assert "api_endpoints" in data
+        assert "status" in data
+        assert data["status"] == "running"
 
     @patch.dict(os.environ, {'GOOGLE_API_KEY': 'test_key'})
     def test_health_endpoint(self, client):
