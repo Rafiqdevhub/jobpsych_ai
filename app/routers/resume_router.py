@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, HTTPException, Request, Form, File
+from fastapi import APIRouter, UploadFile, HTTPException, Request, Form, File, Depends
 from app.services.resume_parser import ResumeParser
 from app.services.role_recommender import RoleRecommender
 from app.services.question_generator import QuestionGenerator
@@ -9,14 +9,18 @@ from fastapi import status
 from pydantic import ValidationError
 from typing import Optional, List
 from app.services.advanced_analyzer import AdvancedAnalyzer
+from app.dependencies.auth import get_current_user, TokenData
+from app.services.rate_limit_service import rate_limit_service
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+import logging
 
+logger = logging.getLogger(__name__)
+
+# Initialize rate limiter for this router
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
-
-# Initialize rate limiter for IP-based limiting
-limiter = Limiter(key_func=get_remote_address)
 
 def format_validation_error(error: ValidationError) -> str:
     error_messages = []
@@ -79,9 +83,64 @@ async def hiredesk_analyze(
     file: UploadFile,
     request: Request,
     target_role: str = Form(...),
-    job_description: str = Form(...)
+    job_description: str = Form(...),
+    current_user: TokenData = Depends(get_current_user)
 ):
     try:
+        logger.info(f"Resume analysis request from user: {current_user.email}")
+
+        # Check rate limit before processing
+        rate_limit_status = await rate_limit_service.check_user_upload_limit(current_user.email)
+
+        if not rate_limit_status["allowed"]:
+            logger.warning(f"Rate limit exceeded for user: {current_user.email}")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "success": False,
+                    "message": "Upload limit reached. You can upload up to 10 files per account.",
+                    "error": "RATE_LIMIT_EXCEEDED",
+                    "current_count": rate_limit_status["current_count"],
+                    "limit": rate_limit_status["limit"],
+                    "remaining": rate_limit_status["remaining"]
+                }
+            )
+
+        # Validate file
+        if not file.filename:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "success": False,
+                    "message": "No file provided.",
+                    "error": "VALIDATION_ERROR"
+                }
+            )
+
+        if not file.filename.lower().endswith(('.pdf', '.doc', '.docx')):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "success": False,
+                    "message": "Invalid file format. Please upload PDF, DOC, or DOCX files only.",
+                    "error": "VALIDATION_ERROR"
+                }
+            )
+
+        # Check file size (max 10MB)
+        file_content = await file.read()
+        if len(file_content) > 10 * 1024 * 1024:  # 10MB
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "success": False,
+                    "message": "File too large. Maximum size is 10MB.",
+                    "error": "VALIDATION_ERROR"
+                }
+            )
+
+        # Reset file pointer for processing
+        await file.seek(0)
         parser = ResumeParser()
         resume_data = await parser.parse(file)
 
@@ -145,7 +204,15 @@ async def hiredesk_analyze(
             personalityInsights=personality_insights,
             careerPath=career_path
         )
+        # Increment upload count after successful processing
+        increment_success = await rate_limit_service.increment_user_upload(current_user.email)
+        if not increment_success:
+            logger.warning(f"Failed to increment upload count for user: {current_user.email}")
+
+        logger.info(f"Resume analysis completed for user: {current_user.email}")
+
         return {
+            "success": True,
             "fit_status": fit_status,
             "reasoning": reasoning,
             "resumeData": response.resumeData,
@@ -156,18 +223,35 @@ async def hiredesk_analyze(
             "personalityInsights": response.personalityInsights,
             "careerPath": response.careerPath
         }
+    except HTTPException:
+        raise
     except ValidationError as e:
         raise HTTPException(
             status_code=422,
-            detail=format_validation_error(e)
+            detail={
+                "success": False,
+                "message": format_validation_error(e),
+                "error": "VALIDATION_ERROR"
+            }
         )
     except Exception as e:
+        logger.error(f"Analysis failed for user {current_user.email}: {str(e)}")
         error_message = str(e)
         if "PDF" in error_message:
             error_message = "Error reading PDF file. Please ensure it's not corrupted or password protected."
         elif "DOCX" in error_message:
             error_message = "Error reading DOCX file. Please ensure it's a valid Word document."
-        raise HTTPException(status_code=500, detail=error_message)
+        else:
+            error_message = "Analysis failed. Please try again."
+        
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "success": False,
+                "message": error_message,
+                "error": "SERVER_ERROR"
+            }
+        )
 
 
 @router.post("/batch-analyze", response_model=List[ResumeAnalysisResponse])

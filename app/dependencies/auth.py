@@ -1,0 +1,61 @@
+from fastapi import HTTPException, Depends, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import JWTError, jwt
+import os
+from typing import Optional
+
+security = HTTPBearer()
+
+# Use the same JWT_SECRET as your Express.js service
+JWT_SECRET = os.getenv("JWT_SECRET")
+ALGORITHM = "HS256"
+
+class TokenData:
+    def __init__(self, email: str, user_id: str = None, name: str = None):
+        self.email = email
+        self.user_id = user_id
+        self.name = name
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> TokenData:
+    """
+    Verify JWT token and extract user information
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={
+            "success": False,
+            "message": "Could not validate credentials",
+            "error": "AUTHENTICATION_ERROR"
+        },
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    if not JWT_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "success": False,
+                "message": "JWT configuration error",
+                "error": "SERVER_ERROR"
+            }
+        )
+
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
+
+        email: str = payload.get("email")
+        user_id: str = payload.get("id") or payload.get("userId")
+        name: str = payload.get("name")
+
+        if email is None:
+            raise credentials_exception
+
+        return TokenData(email=email, user_id=user_id, name=name)
+
+    except JWTError as e:
+        print(f"JWT decode error: {e}")
+        raise credentials_exception
+    except Exception as e:
+        print(f"Token validation error: {e}")
+        raise credentials_exception

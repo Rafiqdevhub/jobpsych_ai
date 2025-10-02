@@ -13,7 +13,7 @@ except ImportError:
 
 from app.routers import resume_router
 
-# Initialize global rate limiter
+# Initialize global rate limiter for slowapi
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
@@ -37,7 +37,7 @@ app.add_middleware(
         "https://hiredesk.vercel.app/",
         "http://localhost:3000",
     ],
-    allow_credentials=False, 
+    allow_credentials=True, 
     allow_methods=["*"],
     allow_headers=["*"],
 )
