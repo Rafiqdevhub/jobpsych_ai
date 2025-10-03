@@ -3,6 +3,7 @@
 ## ✅ What We've Implemented
 
 ### 1. **JWT Authentication System**
+
 - **Location**: `app/dependencies/auth.py`
 - **Features**:
   - JWT token validation using `python-jose`
@@ -11,6 +12,7 @@
   - TokenData class for user information
 
 ### 2. **Rate Limiting Service**
+
 - **Location**: `app/services/rate_limit_service.py`
 - **Features**:
   - Cross-service communication with auth server
@@ -20,7 +22,8 @@
   - 10 file upload limit per user
 
 ### 3. **Protected Endpoint**
-- **Endpoint**: `/api/hiredesk-analyze` 
+
+- **Endpoint**: `/api/hiredesk-analyze`
 - **Authentication**: Required (Bearer token)
 - **Rate Limiting**: 10 files per user account
 - **Features**:
@@ -31,22 +34,26 @@
   - Structured error responses
 
 ### 4. **Environment Configuration**
+
 - **Updated**: `.env.example`
 - **Added Variables**:
   - `JWT_SECRET` - Must match your Express.js auth server
   - `AUTH_SERVICE_URL` - URL to your auth server API
 
 ### 5. **Dependencies Added**
+
 - `python-jose[cryptography]` - JWT handling
 - `aiohttp` - HTTP client for auth server communication
 
 ### 6. **CORS Configuration**
+
 - **Updated**: `app/main.py`
 - **Changed**: `allow_credentials=True` (required for Bearer tokens)
 
 ## 🔄 Flow Implementation
 
 ### Authentication Flow:
+
 ```
 1. Frontend sends request with Authorization: Bearer <token>
 2. FastAPI extracts token from header
@@ -56,6 +63,7 @@
 ```
 
 ### Rate Limiting Flow:
+
 ```
 1. HTTP GET to auth server: /auth/user-uploads/{email}
 2. Check if current count < 10
@@ -66,18 +74,19 @@
 
 ## 🎯 Endpoints Status
 
-| Endpoint | Authentication | Rate Limiting | Status |
-|----------|---------------|---------------|---------|
-| `/analyze-resume` | ❌ None | ✅ slowapi (5/day per IP) | Unchanged |
-| `/hiredesk-analyze` | ✅ JWT Required | ✅ 10 files per user | **✅ Implemented** |
-| `/batch-analyze` | ❌ None | ✅ slowapi (max 10 files) | Unchanged |
-| `/compare-resumes` | ❌ None | ❌ None | Unchanged |
+| Endpoint            | Authentication  | Rate Limiting             | Status             |
+| ------------------- | --------------- | ------------------------- | ------------------ |
+| `/analyze-resume`   | ❌ None         | ✅ slowapi (5/day per IP) | Unchanged          |
+| `/hiredesk-analyze` | ✅ JWT Required | ✅ 10 files per user      | **✅ Implemented** |
+| `/batch-analyze`    | ❌ None         | ✅ slowapi (max 10 files) | Unchanged          |
+| `/compare-resumes`  | ❌ None         | ❌ None                   | Unchanged          |
 
 ## 📋 Auth Server Requirements
 
 **You need to implement these endpoints in your Express.js auth server:**
 
 ### 1. Get User Upload Count
+
 ```javascript
 GET /auth/user-uploads/:email
 Response: {
@@ -88,6 +97,7 @@ Response: {
 ```
 
 ### 2. Increment Upload Count
+
 ```javascript
 POST /auth/increment-upload
 Body: {"email": "user@example.com"}
@@ -101,17 +111,19 @@ Response: {
 ## 🔧 Environment Setup
 
 **Add to your `.env` file:**
+
 ```env
 # JWT Configuration (must match Express.js auth server)
 JWT_SECRET="your_shared_jwt_secret_here"
 
-# Auth Service Configuration  
+# Auth Service Configuration
 AUTH_SERVICE_URL="https://jobpsych-payment.vercel.app/api"
 ```
 
 ## 🧪 Testing
 
 **Test Authentication:**
+
 ```bash
 # Without token (should return 401)
 curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
@@ -130,6 +142,7 @@ curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
 ## 🚨 Error Responses
 
 ### Rate Limit Exceeded (429):
+
 ```json
 {
   "detail": {
@@ -144,6 +157,7 @@ curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
 ```
 
 ### Authentication Error (401):
+
 ```json
 {
   "detail": {
@@ -157,6 +171,7 @@ curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
 ## ✅ Ready for Production
 
 The implementation is ready! You just need to:
+
 1. Add the JWT_SECRET to your environment
 2. Implement the two auth server endpoints
 3. Test the integration

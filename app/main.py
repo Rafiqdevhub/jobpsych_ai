@@ -34,15 +34,40 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://jobpsych.vercel.app",
-        "https://hiredesk.vercel.app/",
+        "https://hiredesk.vercel.app", 
         "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
     ],
-    allow_credentials=True, 
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=True,  # Keep True for auth endpoints 
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+    allow_headers=[
+        "Accept",
+        "Accept-Encoding",
+        "Accept-Language", 
+        "Authorization",
+        "Content-Language",
+        "Content-Type",
+        "DNT",
+        "Origin",
+        "User-Agent",
+        "X-Requested-With",
+        "X-CSRF-Token",
+        "X-CSRFToken",
+    ],
+    expose_headers=["*"],
 )
 
 app.include_router(resume_router.router, prefix="/api", tags=["resume"])
+
+# Add CORS test endpoint
+@app.get("/api/cors-test")
+async def cors_test():
+    return {
+        "message": "CORS is working!",
+        "status": "success",
+        "timestamp": "2025-10-02T00:00:00Z"
+    }
 
 @app.get("/")
 async def root():
