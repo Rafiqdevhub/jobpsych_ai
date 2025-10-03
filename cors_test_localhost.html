@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>JobPsych CORS Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 40px;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 10px;
+        cursor: pointer;
+      }
+      #result {
+        margin-top: 20px;
+        padding: 15px;
+        border: 1px solid #ccc;
+      }
+      .success {
+        background-color: #d4edda;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>JobPsych CORS Test</h1>
+    <p>Testing CORS for analyze-resume endpoint from localhost:3000</p>
+
+    <button onclick="testCORS()">Test CORS (GET)</button>
+    <button onclick="testAnalyzeEndpoint()">
+      Test Analyze Endpoint (POST)
+    </button>
+    <button onclick="testWithFormData()">Test with Form Data</button>
+
+    <div id="result"></div>
+
+    <script>
+      // Change this to your actual backend URL
+      const BACKEND_URL = "http://localhost:8000";
+      // For deployed version, use: 'https://hr-resume-analyzer-backend.vercel.app'
+
+      function logResult(message, isSuccess = true) {
+        const resultDiv = document.getElementById("result");
+        resultDiv.className = isSuccess ? "success" : "error";
+        resultDiv.innerHTML = message;
+        console.log(message);
+      }
+
+      async function testCORS() {
+        try {
+          const response = await fetch(`${BACKEND_URL}/api/cors-test`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            logResult(
+              `
+                        <h3>✅ CORS Test Successful!</h3>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Response:</strong> ${JSON.stringify(
+                          data,
+                          null,
+                          2
+                        )}</p>
+                    `,
+              true
+            );
+          } else {
+            logResult(
+              `
+                        <h3>❌ CORS Test Failed</h3>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Error:</strong> ${await response.text()}</p>
+                    `,
+              false
+            );
+          }
+        } catch (error) {
+          logResult(
+            `
+                    <h3>❌ CORS Test Error</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p>This usually indicates a CORS issue.</p>
+                `,
+            false
+          );
+        }
+      }
+
+      async function testAnalyzeEndpoint() {
+        try {
+          // Test without file (should get validation error, not CORS error)
+          const response = await fetch(`${BACKEND_URL}/api/analyze-resume`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({}),
+          });
+
+          logResult(
+            `
+                    <h3>✅ Analyze Endpoint Accessible</h3>
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Response:</strong> ${await response.text()}</p>
+                    <p><em>Note: 422 error is expected (validation error), not CORS error.</em></p>
+                `,
+            true
+          );
+        } catch (error) {
+          logResult(
+            `
+                    <h3>❌ Analyze Endpoint Error</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p>This indicates a CORS issue if you see 'NetworkError' or 'CORS policy'.</p>
+                `,
+            false
+          );
+        }
+      }
+
+      async function testWithFormData() {
+        try {
+          // Create a small test file
+          const testFile = new Blob(["test content"], {
+            type: "application/pdf",
+          });
+          const formData = new FormData();
+          formData.append("file", testFile, "test.pdf");
+          formData.append("target_role", "Software Engineer");
+          formData.append("job_description", "Test job description");
+
+          const response = await fetch(`${BACKEND_URL}/api/analyze-resume`, {
+            method: "POST",
+            body: formData, // Don't set Content-Type header for FormData
+          });
+
+          logResult(
+            `
+                    <h3>✅ Form Data Request Successful</h3>
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Response:</strong> ${await response.text()}</p>
+                    <p><em>Note: May get processing error, but CORS should work.</em></p>
+                `,
+            true
+          );
+        } catch (error) {
+          logResult(
+            `
+                    <h3>❌ Form Data Request Error</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p>Check if this is a CORS error or processing error.</p>
+                `,
+            false
+          );
+        }
+      }
+
+      // Auto-test on page load
+      window.onload = function () {
+        console.log("Testing CORS from:", window.location.origin);
+        console.log("Backend URL:", BACKEND_URL);
+      };
+    </script>
+  </body>
+</html>

@@ -30,6 +30,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 
+# For analyze-resume endpoint (no auth required), use permissive CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -37,24 +38,10 @@ app.add_middleware(
         "https://hiredesk.vercel.app", 
         "http://localhost:3000",
         "http://localhost:3001",
-        "http://127.0.0.1:3000",
     ],
-    allow_credentials=True,  # Keep True for auth endpoints 
+    allow_credentials=False,  
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
-    allow_headers=[
-        "Accept",
-        "Accept-Encoding",
-        "Accept-Language", 
-        "Authorization",
-        "Content-Language",
-        "Content-Type",
-        "DNT",
-        "Origin",
-        "User-Agent",
-        "X-Requested-With",
-        "X-CSRF-Token",
-        "X-CSRFToken",
-    ],
+    allow_headers=["*"], 
     expose_headers=["*"],
 )
 
