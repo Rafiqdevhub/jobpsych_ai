@@ -22,7 +22,6 @@ app = FastAPI(
     description="AI-powered resume analysis and job role recommendation service and HR interview question generation for HR professionals.",
 )
 
-# Add rate limiting state to app
 app.state.limiter = limiter
 
 # Add global rate limit exception handler
@@ -30,7 +29,6 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 
-# For analyze-resume endpoint (no auth required), use permissive CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -39,7 +37,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:3001",
     ],
-    allow_credentials=False,  
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"], 
     expose_headers=["*"],
@@ -47,7 +45,6 @@ app.add_middleware(
 
 app.include_router(resume_router.router, prefix="/api", tags=["resume"])
 
-# Add CORS test endpoint
 @app.get("/api/cors-test")
 async def cors_test():
     return {
