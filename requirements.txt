@@ -8,3 +8,5 @@ python-dotenv
 pdfplumber
 pydantic
 slowapi
+python-jose[cryptography]
+aiohttp
