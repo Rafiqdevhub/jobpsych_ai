@@ -6,7 +6,8 @@
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "15mb",
-        "excludeFiles": "{tests/**,__pycache__/**,.pytest_cache/**,.venv/**}"
+        "memory": 1024,
+        "maxDuration": 30
       }
     }
   ],
@@ -15,11 +16,5 @@
       "src": "/(.*)",
       "dest": "main.py"
     }
-  ],
-  "functions": {
-    "main.py": {
-      "memory": 1024,
-      "maxDuration": 30
-    }
-  }
+  ]
 }
