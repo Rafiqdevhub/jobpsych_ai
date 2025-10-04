@@ -1,4 +1,4 @@
-import PyPDF2
+from pypdf import PdfReader
 import docx
 import pdfplumber
 from fastapi import UploadFile, HTTPException
@@ -48,7 +48,7 @@ class ResumeParser:
 
             if filename.endswith('.pdf'):
                 try:
-                    pdf_reader = PyPDF2.PdfReader(file_bytes)
+                    pdf_reader = PdfReader(file_bytes)
                     text = " ".join(page.extract_text() for page in pdf_reader.pages)
                 except Exception as e:
                     try:

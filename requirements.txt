@@ -1,12 +1,23 @@
-fastapi
-python-multipart
-uvicorn
-google-generativeai
-python-docx
-PyPDF2
-python-dotenv
-pdfplumber
-pydantic
-slowapi
-python-jose[cryptography]
-aiohttp
+# Core FastAPI - minimal versions
+fastapi>=0.115.0
+uvicorn>=0.30.0
+
+# File processing
+python-multipart>=0.0.20
+pydantic>=2.0.0
+
+# Google AI
+google-generativeai>=0.8.0
+
+# Document parsing - use pypdf instead of PyPDF2 (smaller)
+pypdf>=4.0.0
+python-docx>=1.1.0
+pdfplumber>=0.11.0
+
+# Environment and security
+python-dotenv>=1.0.0
+python-jose[cryptography]>=3.3.0
+
+# Rate limiting and HTTP
+slowapi>=0.1.9
+aiohttp>=3.8.0

@@ -1,0 +1,103 @@
+# Development files
+
+.env
+.env.example
+.env.\*
+
+# Virtual environments
+
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache and bytecode
+
+**pycache**/
+_.py[cod]
+_$py.class
+\*.so
+
+# Testing
+
+tests/
+.pytest*cache/
+.coverage
+.coverage.\*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+nosetests.xml
+test*_.py
+_\_test.py
+conftest.py
+
+# Documentation
+
+_.md
+README_
+LICENSE
+CHANGELOG\*
+docs/
+TESTS_ORGANIZED.md
+QUICK_START.md
+
+# Git
+
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Docker
+
+dockerfile
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# IDE and editors
+
+.vscode/
+.idea/
+_.swp
+_.swo
+\*~
+.DS_Store
+
+# Build and distribution
+
+build/
+dist/
+\*.egg-info/
+backend.egg-info/
+.eggs/
+
+# Cache directories
+
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Development tools
+
+.python-version
+pyproject.toml
+uv.lock
+poetry.lock
+Pipfile
+Pipfile.lock
+
+# Development scripts
+
+get-pip.py
+
+# Large dependencies (if not needed)
+
+node_modules/
+
+# Logs
+
+\*.log
+logs/
