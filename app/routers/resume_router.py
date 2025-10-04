@@ -87,13 +87,11 @@ async def hiredesk_analyze(
     current_user: TokenData = Depends(get_current_user)
 ):
     try:
-        logger.info(f"Resume analysis request from user: {current_user.email}")
 
         # Check rate limit before processing
         rate_limit_status = await rate_limit_service.check_user_upload_limit(current_user.email)
 
         if not rate_limit_status["allowed"]:
-            logger.warning(f"Rate limit exceeded for user: {current_user.email}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail={
