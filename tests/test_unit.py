@@ -146,16 +146,16 @@ class TestQuestionGenerator:
             "experience": [{"title": "Data Scientist"}]
         }
         
-        with patch.object(generator, 'generate_questions') as mock_gen:
+        with patch.object(generator, 'generate') as mock_gen:
             mock_gen.return_value = [
                 {
+                    "type": "technical",
                     "question": "Explain your Python experience",
-                    "category": "technical",
-                    "difficulty": "medium"
+                    "context": "Based on your resume"
                 }
             ]
             
-            result = await generator.generate_questions(resume_data, "Data Scientist")
+            result = await generator.generate(resume_data)
             
             assert isinstance(result, list)
             if len(result) > 0:
@@ -299,40 +299,49 @@ class TestSchemas:
     
     def test_resume_data_schema(self):
         """Test ResumeData schema validation"""
-        from app.models.schemas import ResumeData
+        from app.models.schemas import ResumeData, PersonalInfo, Experience, Education
         
         data = {
-            "personal_info": {
+            "personalInfo": {
                 "name": "John Doe",
                 "email": "john@example.com"
             },
-            "summary": "Experienced engineer",
-            "experience": [],
-            "education": [],
+            "workExperience": [
+                {
+                    "title": "Software Engineer",
+                    "company": "Tech Corp",
+                    "duration": "2020-2023"
+                }
+            ],
+            "education": [
+                {
+                    "degree": "BS Computer Science",
+                    "institution": "University",
+                    "year": "2020"
+                }
+            ],
             "skills": ["Python", "JavaScript"],
-            "certifications": [],
-            "projects": [],
-            "languages": ["English"]
+            "highlights": ["Led team of 5 developers"]
         }
         
         resume_data = ResumeData(**data)
-        assert resume_data.personal_info.name == "John Doe"
+        assert resume_data.personalInfo.name == "John Doe"
         assert len(resume_data.skills) == 2
+        assert len(resume_data.workExperience) == 1
     
     def test_question_schema(self):
         """Test Question schema validation"""
         from app.models.schemas import Question
         
         question = Question(
+            type="technical",
             question="What is your experience with Python?",
-            category="technical",
-            difficulty="medium",
-            topic="Programming Languages"
+            context="Based on your resume showing Python skills"
         )
         
         assert question.question is not None
-        assert question.category == "technical"
-        assert question.difficulty == "medium"
+        assert question.type == "technical"
+        assert question.context is not None
 
 
 # ============================================================================
