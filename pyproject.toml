@@ -1,7 +1,7 @@
 [project]
-name = "backend"
-version = "1.0.0"
-description = "Resume Analysis and Question Generation Backend"
+name = "jobpych-ai"
+version = "2.0.0"
+description = "JobPsych AI - Resume Analysis and Question Generation Backend"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
