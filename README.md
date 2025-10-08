@@ -185,22 +185,95 @@ Once the application is running, visit:
 - **Health Check**: <http://localhost:8000/>
 - **Detailed Health Check**: <http://localhost:8000/health>
 
-## 🔌 API Endpoints
+## 🔌 API Endpoints & Workflows
 
-### Core Endpoints
+### System Endpoints
 
-| Method | Endpoint                | Authentication | Description                                                                  |
-| ------ | ----------------------- | -------------- | ---------------------------------------------------------------------------- |
-| `GET`  | `/`                     | ❌ No          | API information and health status                                            |
-| `GET`  | `/health`               | ❌ No          | Detailed health check with API configuration                                 |
-| `POST` | `/api/analyze-resume`   | ❌ No          | Basic resume analysis with role recommendations (Rate limited: 5/day per IP) |
-| `POST` | `/api/hiredesk-analyze` | ✅ Yes         | Advanced HR analysis with fit assessment (Requires JWT token)                |
-| `POST` | `/api/batch-analyze`    | ❌ No          | Batch processing for multiple resumes                                        |
-| `POST` | `/api/compare-resumes`  | ❌ No          | Compare and rank multiple resumes                                            |
+#### 1. Root Endpoint (`GET /`)
 
-### Request Examples
+**Purpose**: API information and system status overview
 
-#### Basic Resume Analysis (Public)
+**Workflow**:
+
+1. Returns comprehensive system information
+2. No authentication required
+3. Provides quick overview of all capabilities
+
+**Response**:
+
+```json
+{
+  "app_name": "JobPsych AI - Role Suggestion and HR Intelligence Platform",
+  "message": "AI-Powered Resume Analysis & Job Role Recommendation Service",
+  "status": "running",
+  "version": "2.0.0",
+  "core_capabilities": {
+    "resume_parsing": {...},
+    "ai_analysis": {...},
+    "interview_assistance": {...},
+    "batch_processing": {...}
+  },
+  "documentation": "Interactive API docs available at /docs",
+  "health_check": "System health status available at /health",
+  "rate_limiting": "Protected endpoints: 5 requests per day per IP for /analyze-resume",
+  "ai_powered_by": "Google Gemini 2.5 Flash"
+}
+```
+
+#### 2. Health Check (`GET /health`)
+
+**Purpose**: System health monitoring and configuration validation
+
+**Workflow**:
+
+1. Checks Google Gemini API key configuration
+2. Validates environment setup
+3. Returns deployment environment info
+
+**Response**:
+
+```json
+{
+  "status": "healthy",
+  "api_configured": true,
+  "environment": "development"
+}
+```
+
+#### 3. CORS Test (`GET /api/cors-test`)
+
+**Purpose**: Test CORS configuration and connectivity
+
+**Workflow**:
+
+1. Validates cross-origin request handling
+2. Returns success confirmation with timestamp
+
+### Resume Analysis Endpoints
+
+#### 4. Basic Resume Analysis (`POST /api/analyze-resume`)
+
+**Purpose**: Quick resume analysis with role recommendations (Public endpoint)
+
+**Authentication**: ❌ None required
+**Rate Limit**: 5 requests per day per IP address
+**File Support**: PDF, DOCX, DOC (max 10MB)
+
+**Workflow**:
+
+1. **File Upload**: Accept resume file via multipart/form-data
+2. **Resume Parsing**: Extract structured data (personal info, experience, education, skills)
+3. **AI Analysis**: Generate role recommendations using Google Gemini AI
+4. **Optional Parameters**: target_role and job_description for focused analysis
+5. **Response**: Resume data + role recommendations (no interview questions)
+
+**Parameters**:
+
+- `file` (required): Resume file (PDF/DOCX/DOC)
+- `target_role` (optional): Specific job role to analyze fit for
+- `job_description` (optional): Job requirements for better analysis
+
+**Example Request**:
 
 ```bash
 curl -X POST "http://localhost:8000/api/analyze-resume" \
@@ -209,34 +282,324 @@ curl -X POST "http://localhost:8000/api/analyze-resume" \
      -F "job_description=Develop and maintain web applications using Python, React, and cloud technologies..."
 ```
 
-#### Advanced HR Analysis (Authenticated)
+**Response Structure**:
+
+```json
+{
+  "resumeData": {
+    "personalInfo": {
+      "name": "John Doe",
+      "email": "john@example.com",
+      "phone": "+1-555-0123",
+      "location": "San Francisco, CA"
+    },
+    "workExperience": [...],
+    "education": [...],
+    "skills": ["Python", "React", "AWS"],
+    "highlights": [...]
+  },
+  "questions": [],
+  "roleRecommendations": [
+    {
+      "roleName": "Software Engineer",
+      "matchPercentage": 85,
+      "reasoning": "Strong technical skills match...",
+      "requiredSkills": ["Python", "React"],
+      "missingSkills": ["Kubernetes"],
+      "learningResources": [...]
+    }
+  ]
+}
+```
+
+#### 5. Advanced HR Analysis (`POST /api/hiredesk-analyze`)
+
+**Purpose**: Comprehensive HR analysis with full AI insights (Authenticated endpoint)
+
+**Authentication**: ✅ JWT token required
+**Rate Limit**: 10 files per user account (tracked via external auth service)
+**File Support**: PDF, DOCX, DOC (max 10MB)
+
+**Workflow**:
+
+1. **Authentication**: Validate JWT token and extract user identity
+2. **Rate Limit Check**: Verify user hasn't exceeded 10-file limit
+3. **File Validation**: Check file format, size, and integrity
+4. **Resume Parsing**: Extract comprehensive structured data
+5. **AI Analysis**: Perform complete analysis including:
+   - Role recommendations with best-fit selection
+   - Role fit assessment for target position
+   - Interview question generation (technical, behavioral, experience-based)
+   - Resume scoring (0-100) with detailed breakdown
+   - Personality insights and work style analysis
+   - Career path prediction and advancement timeline
+6. **Rate Limit Update**: Increment user's upload counter
+
+**Parameters**:
+
+- `file` (required): Resume file (PDF/DOCX/DOC)
+- `target_role` (required): Specific job role for detailed analysis
+- `job_description` (required): Complete job requirements
+
+**Example Request**:
 
 ```bash
 curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
-     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+     -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
      -F "file=@resume.pdf" \
      -F "target_role=Product Manager" \
-     -F "job_description=Detailed job description with requirements..."
+     -F "job_description=Lead product development for SaaS platform. 5+ years experience in product management, agile methodologies, data analysis, stakeholder management..."
 ```
 
-#### Batch Analysis (Multiple Resumes)
+**Response Structure**:
+
+```json
+{
+  "resumeData": {
+    "personalInfo": {...},
+    "workExperience": [...],
+    "education": [...],
+    "skills": [...],
+    "highlights": [...]
+  },
+  "questions": [
+    {
+      "question": "Can you describe a time when you led a cross-functional team through a product launch?",
+      "type": "behavioral",
+      "category": "leadership"
+    },
+    {
+      "question": "How do you prioritize features in your product roadmap?",
+      "type": "technical",
+      "category": "product_management"
+    }
+  ],
+  "roleRecommendations": [...],
+  "resumeScore": {
+    "overall_score": 82,
+    "technical_score": 85,
+    "experience_score": 80,
+    "education_score": 90,
+    "communication_score": 75,
+    "strengths": ["Strong technical background", "Leadership experience"],
+    "weaknesses": ["Limited formal product management education"],
+    "recommendations": [...]
+  },
+  "personalityInsights": {
+    "work_style": "Analytical and collaborative",
+    "leadership_style": "Transformational",
+    "communication_style": "Clear and concise",
+    "decision_making": "Data-driven approach"
+  },
+  "careerPath": {
+    "current_level": "Senior Individual Contributor",
+    "next_roles": ["Product Manager", "Engineering Manager"],
+    "timeline": "2-3 years",
+    "development_areas": [...]
+  }
+}
+```
+
+#### 6. Batch Resume Analysis (`POST /api/batch-analyze`)
+
+**Purpose**: Process multiple resumes simultaneously for bulk analysis
+
+**Authentication**: ❌ None required
+**Rate Limit**: 10 resumes per batch request
+**File Support**: PDF, DOCX, DOC (max 10MB each)
+
+**Workflow**:
+
+1. **Batch Validation**: Accept 2-10 resume files
+2. **Parallel Processing**: Process each resume independently
+3. **Error Handling**: Continue processing other files if one fails
+4. **Comprehensive Analysis**: Full AI analysis for each resume
+5. **Results Aggregation**: Return array of analysis results
+
+**Parameters**:
+
+- `files` (required): Array of resume files (2-10 files)
+- `target_role` (optional): Analyze all resumes against this role
+- `job_description` (optional): Job requirements for focused analysis
+
+**Example Request**:
 
 ```bash
 curl -X POST "http://localhost:8000/api/batch-analyze" \
-     -F "files=@resume1.pdf" \
-     -F "files=@resume2.pdf" \
-     -F "target_role=Data Scientist" \
-     -F "job_description=Analyze data and build ML models..."
+     -F "files=@candidate1.pdf" \
+     -F "files=@candidate2.pdf" \
+     -F "files=@candidate3.pdf" \
+     -F "target_role=Frontend Developer" \
+     -F "job_description=Build responsive web applications using React, TypeScript, and modern CSS frameworks..."
 ```
 
-#### Compare Resumes
+**Response Structure**:
+
+```json
+[
+  {
+    "resumeData": {...},
+    "questions": [...],
+    "roleRecommendations": [...],
+    "resumeScore": {...},
+    "personalityInsights": {...},
+    "careerPath": {...}
+  },
+  {
+    "resumeData": {...},
+    "questions": [...],
+    "roleRecommendations": [...],
+    "resumeScore": {...},
+    "personalityInsights": {...},
+    "careerPath": {...}
+  }
+]
+```
+
+#### 7. Resume Comparison (`POST /api/compare-resumes`)
+
+**Purpose**: Compare and rank multiple candidates for the same position
+
+**Authentication**: ❌ None required
+**Rate Limit**: 5 resumes per comparison request
+**File Support**: PDF, DOCX, DOC (max 10MB each)
+
+**Workflow**:
+
+1. **Comparison Setup**: Accept 2-5 resume files
+2. **Individual Scoring**: Calculate comprehensive scores for each candidate
+3. **Ranking Algorithm**: Sort candidates by overall score (descending)
+4. **Comparison Summary**: Generate aggregate statistics
+5. **HR Recommendations**: Provide hiring guidance based on scores
+
+**Parameters**:
+
+- `files` (required): Array of resume files (2-5 files)
+
+**Example Request**:
 
 ```bash
 curl -X POST "http://localhost:8000/api/compare-resumes" \
-     -F "files=@resume1.pdf" \
-     -F "files=@resume2.pdf" \
-     -F "files=@resume3.pdf"
+     -F "files=@candidate_a.pdf" \
+     -F "files=@candidate_b.pdf" \
+     -F "files=@candidate_c.pdf" \
+     -F "files=@candidate_d.pdf"
 ```
+
+**Response Structure**:
+
+```json
+{
+  "comparison_summary": {
+    "total_candidates": 4,
+    "highest_score": 88,
+    "average_score": 76.5,
+    "score_range": "65-88"
+  },
+  "ranked_candidates": [
+    {
+      "filename": "candidate_a.pdf",
+      "resumeData": {...},
+      "score": 88,
+      "strengths": ["Exceptional technical skills", "Strong leadership experience"],
+      "weaknesses": ["Limited formal education in target field"],
+      "rank": 1
+    },
+    {
+      "filename": "candidate_b.pdf",
+      "resumeData": {...},
+      "score": 82,
+      "strengths": ["Excellent communication skills", "Diverse industry experience"],
+      "weaknesses": ["Some technical skill gaps"],
+      "rank": 2
+    }
+  ],
+  "recommendations": [
+    "Consider top 3 candidates for interviews",
+    "Review candidates with scores > 80 for immediate consideration",
+    "Candidates with scores < 60 may need additional training",
+    "Schedule technical interviews for top 2 candidates"
+  ]
+}
+```
+
+## 🔄 Complete Workflow Examples
+
+### Scenario 1: Initial Candidate Screening
+
+```bash
+# Step 1: Quick analysis of single resume
+curl -X POST "http://localhost:8000/api/analyze-resume" \
+     -F "file=@candidate_resume.pdf" \
+     -F "target_role=Software Engineer"
+
+# Step 2: If promising, get detailed analysis
+curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
+     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+     -F "file=@candidate_resume.pdf" \
+     -F "target_role=Software Engineer" \
+     -F "job_description=Detailed job requirements..."
+```
+
+### Scenario 2: Bulk Recruitment Drive
+
+```bash
+# Step 1: Batch analyze all applications
+curl -X POST "http://localhost:8000/api/batch-analyze" \
+     -F "files=@app1.pdf" \
+     -F "files=@app2.pdf" \
+     -F "files=@app3.pdf" \
+     -F "target_role=Data Scientist"
+
+# Step 2: Compare top candidates
+curl -X POST "http://localhost:8000/api/compare-resumes" \
+     -F "files=@top_candidate1.pdf" \
+     -F "files=@top_candidate2.pdf" \
+     -F "files=@top_candidate3.pdf"
+```
+
+### Scenario 3: HR Dashboard Integration
+
+```bash
+# Step 1: Authenticate user
+# (JWT token obtained from authentication service)
+
+# Step 2: Upload and analyze resume
+curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
+     -H "Authorization: Bearer ${JWT_TOKEN}" \
+     -F "file=@resume.pdf" \
+     -F "target_role=${JOB_ROLE}" \
+     -F "job_description=${JOB_DESCRIPTION}"
+
+# Step 3: Store results in HR system
+# Process the comprehensive analysis response
+```
+
+## 📊 Rate Limiting & Usage Guidelines
+
+### Public Endpoints
+
+- **`/api/analyze-resume`**: 5 requests per day per IP address
+- **`/api/batch-analyze`**: No specific limit (reasonable usage expected)
+- **`/api/compare-resumes`**: No specific limit (reasonable usage expected)
+
+### Authenticated Endpoints
+
+- **`/api/hiredesk-analyze`**: 10 files per user account (tracked via external service)
+
+### File Upload Limits
+
+- **Maximum file size**: 10MB per file
+- **Supported formats**: PDF, DOCX, DOC
+- **Batch limits**: 2-10 files for batch analysis, 2-5 files for comparison
+
+### Error Handling
+
+- **400 Bad Request**: Invalid parameters or file format
+- **401 Unauthorized**: Missing or invalid JWT token
+- **422 Unprocessable Entity**: Validation errors or file processing issues
+- **429 Too Many Requests**: Rate limit exceeded
+- **500 Internal Server Error**: Server-side processing errors
 
 ## Project Structure
 
