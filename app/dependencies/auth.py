@@ -2,8 +2,8 @@ from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 import os
-from typing import Optional
-import logging
+
+
 
 security = HTTPBearer()
 

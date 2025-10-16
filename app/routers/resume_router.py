@@ -81,13 +81,11 @@ async def analyze_resume(
 @router.post("/hiredesk-analyze", response_model=ResumeAnalysisResponse, status_code=status.HTTP_200_OK)
 async def hiredesk_analyze(
     file: UploadFile,
-    request: Request,
     target_role: str = Form(...),
     job_description: str = Form(...),
     current_user: TokenData = Depends(get_current_user)
 ):
     try:
-
         # Check rate limit before processing
         rate_limit_status = await rate_limit_service.check_user_upload_limit(current_user.email)
 
@@ -167,7 +165,6 @@ async def hiredesk_analyze(
         # Generate questions for the best-fit role and general resume
         questions = []
         try:
-            from app.services.question_generator import QuestionGenerator
             question_gen = QuestionGenerator()
             # General resume-based questions
             general_questions = await question_gen.generate(resume_data)
@@ -276,11 +273,6 @@ async def batch_analyze_resumes(
             else:
                 role_recommendations = await recommender.recommend_roles(resume_data)
 
-            # Generate questions
-            question_gen = QuestionGenerator()
-            raw_questions = await question_gen.generate(resume_data)
-            questions = [Question(**q) if isinstance(q, dict) else q for q in raw_questions]
-
             # Advanced analysis
             advanced_analyzer = AdvancedAnalyzer()
             resume_score = await advanced_analyzer.calculate_resume_score(resume_data)
@@ -289,7 +281,7 @@ async def batch_analyze_resumes(
 
             response = ResumeAnalysisResponse(
                 resumeData=ResumeData(**resume_data),
-                questions=questions,
+                questions=[],  # No questions for batch analysis
                 roleRecommendations=role_recommendations,
                 resumeScore=resume_score,
                 personalityInsights=personality_insights,

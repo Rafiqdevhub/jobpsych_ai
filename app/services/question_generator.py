@@ -43,7 +43,7 @@ class QuestionGenerator:
 
     async def generate_for_role(self, resume_data: Dict[str, Any], target_role: str, job_description: Optional[str] = None) -> List[Question]:
         """Generate role-specific interview questions based on resume data and target role"""
-        model = genai.GenerativeModel('gemini-2.5-pro')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = self._create_role_specific_prompt(resume_data, target_role, job_description)
 
         response = await model.generate_content_async(prompt)

@@ -27,7 +27,7 @@ class AdvancedAnalyzer:
         if self._model is None:
             if not GENAI_AVAILABLE or not genai:
                 raise ImportError("google-generativeai package is not available")
-            self._model = genai.GenerativeModel('gemini-2.5-pro')
+            self._model = genai.GenerativeModel('gemini-2.5-flash')
         return self._model
 
     async def calculate_resume_score(self, resume_data: Dict[str, Any]) -> ResumeScore:
