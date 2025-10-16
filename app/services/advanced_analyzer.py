@@ -19,10 +19,20 @@ class AdvancedAnalyzer:
             raise ImportError("google-generativeai package is not available")
 
         genai.configure(api_key=self.api_key)
+        self._model = None
+
+    @property
+    def model(self):
+        """Get the generative AI model instance."""
+        if self._model is None:
+            if not GENAI_AVAILABLE or not genai:
+                raise ImportError("google-generativeai package is not available")
+            self._model = genai.GenerativeModel('gemini-2.5-pro')
+        return self._model
 
     async def calculate_resume_score(self, resume_data: Dict[str, Any]) -> ResumeScore:
         """Calculate comprehensive resume score with detailed breakdown"""
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = self.model
         prompt = self._create_scoring_prompt(resume_data)
         response = await model.generate_content_async(prompt)
 
@@ -34,7 +44,7 @@ class AdvancedAnalyzer:
 
     async def analyze_personality(self, resume_data: Dict[str, Any]) -> PersonalityInsights:
         """Analyze personality traits from resume content"""
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = self.model
         prompt = self._create_personality_prompt(resume_data)
         response = await model.generate_content_async(prompt)
 
@@ -46,7 +56,7 @@ class AdvancedAnalyzer:
 
     async def predict_career_path(self, resume_data: Dict[str, Any]) -> CareerPathPrediction:
         """Predict career progression and next steps"""
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = self.model
         prompt = self._create_career_prompt(resume_data)
         response = await model.generate_content_async(prompt)
 

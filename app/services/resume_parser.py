@@ -26,6 +26,16 @@ class ResumeParser:
             raise ImportError("google-generativeai package is not available")
             
         genai.configure(api_key=self.api_key)
+        self._model = None
+
+    @property
+    def model(self):
+        """Get the generative AI model instance."""
+        if self._model is None:
+            if not GENAI_AVAILABLE or not genai:
+                raise ImportError("google-generativeai package is not available")
+            self._model = genai.GenerativeModel('gemini-2.5-flash')
+        return self._model
 
     async def parse(self, file: UploadFile) -> Dict[str, Any]:
         """Parse resume file and extract information"""
@@ -146,7 +156,7 @@ class ResumeParser:
             4. Keep the exact JSON structure as shown
             5. Return only the JSON object, no additional text
             """
-            model = genai.GenerativeModel('gemini-2.5-flash')
+            model = self.model
             response = await model.generate_content_async(prompt)
             response_text = response.text
 

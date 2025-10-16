@@ -45,13 +45,7 @@ app.add_middleware(
 
 app.include_router(resume_router.router, prefix="/api", tags=["resume"])
 
-@app.get("/api/cors-test")
-async def cors_test():
-    return {
-        "message": "CORS is working!",
-        "status": "success",
-        "timestamp": "2025-10-02T00:00:00Z"
-    }
+
 
 @app.get("/")
 async def root():
