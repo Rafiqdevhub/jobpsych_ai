@@ -393,7 +393,7 @@ class TestPerformance:
         client = TestClient(app)
         
         async def make_request():
-            response = client.get("/api/cors-test")
+            response = client.get("/health")
             return response.status_code
         
         # Simulate 10 concurrent requests

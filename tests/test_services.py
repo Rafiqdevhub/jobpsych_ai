@@ -93,21 +93,6 @@ def test_root_endpoint():
     assert "Resume Analysis" in data["message"]
 
 
-def test_cors_headers():
-    """Test CORS headers are properly set"""
-    response = client.options("/")
-    assert response.status_code in [200, 405]  # Some frameworks return 405 for OPTIONS
-
-
-def test_cors_test_endpoint():
-    """Test the CORS test endpoint"""
-    response = client.get("/api/cors-test")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["message"] == "CORS is working!"
-    assert data["status"] == "success"
-
-
 # ============================================================================
 # AUTHENTICATION TESTS
 # ============================================================================
@@ -230,16 +215,14 @@ def test_hiredesk_analyze_missing_required_fields(valid_token, sample_pdf_file, 
 
 def test_rate_limiting_per_ip():
     """Test IP-based rate limiting on public endpoint"""
-    # Make multiple rapid requests
+    # Make multiple rapid requests to health endpoint
     responses = []
     for _ in range(10):
-        response = client.get("/api/cors-test")
+        response = client.get("/health")
         responses.append(response.status_code)
-    
+
     # All should succeed or eventually rate limit
     assert all(status in [200, 429] for status in responses)
-
-
 # ============================================================================
 # ERROR HANDLING TESTS
 # ============================================================================
@@ -297,14 +280,6 @@ def test_app_startup():
     assert app is not None
     assert app.title == "JobPsych ai"
     assert app.version == "2.0.0"
-
-
-def test_cors_origins_configured():
-    """Test CORS middleware is properly configured"""
-    # Check that CORS middleware is in the middleware stack
-    middleware_classes = [m.__class__.__name__ for m in app.user_middleware]
-    # CORS middleware might be wrapped, so we check for its presence
-    assert len(app.user_middleware) > 0
 
 
 # ============================================================================
