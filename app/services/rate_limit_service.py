@@ -171,7 +171,7 @@ class RateLimitService:
                     "submitted": batch_size
                 }
 
-            # Get current batch_analysis counter (independent check)
+            # Get current batch_analysis counter
             usage = await self.get_feature_usage(email)
             if usage is None:
                 # Service unavailable - fail open
@@ -180,17 +180,57 @@ class RateLimitService:
                     "reason": "service_unavailable",
                     "message": "Could not verify limit, allowing request",
                     "current_batch_count": 0,
-                    "batch_size": batch_size
+                    "batch_size": batch_size,
+                    "files_limit": self.free_tier_limit,
+                    "files_allowed": batch_size,
+                    "would_exceed_by": 0
                 }
 
             current_batch_count = usage.get("batch_analysis", 0)
-
+            
+            # Check if adding this batch would exceed the free tier limit (10 files)
+            total_after_upload = current_batch_count + batch_size
+            
+            if total_after_upload > self.free_tier_limit:
+                # User would exceed the limit
+                files_allowed = self.free_tier_limit - current_batch_count
+                would_exceed_by = total_after_upload - self.free_tier_limit
+                
+                if files_allowed <= 0:
+                    # User has already hit the limit
+                    return {
+                        "allowed": False,
+                        "reason": "file_limit_exceeded",
+                        "message": f"You've reached your free limit of {self.free_tier_limit} files. Cannot analyze more files.",
+                        "current_files_uploaded": current_batch_count,
+                        "batch_size": batch_size,
+                        "files_limit": self.free_tier_limit,
+                        "files_allowed": 0,
+                        "would_exceed_by": batch_size
+                    }
+                else:
+                    # User can upload some files, but not all
+                    return {
+                        "allowed": False,
+                        "reason": "file_limit_exceeded",
+                        "message": f"Uploading all {batch_size} files would exceed your free limit of {self.free_tier_limit}. You can upload {files_allowed} more file(s).",
+                        "current_files_uploaded": current_batch_count,
+                        "batch_size": batch_size,
+                        "files_limit": self.free_tier_limit,
+                        "files_allowed": files_allowed,
+                        "would_exceed_by": would_exceed_by
+                    }
+            
+            # All files are allowed
             return {
                 "allowed": True,
                 "reason": "ok",
-                "message": f"Batch analysis allowed. Current batches: {current_batch_count}",
+                "message": f"Batch analysis allowed. Current files: {current_batch_count}, Uploading: {batch_size}",
                 "current_batch_count": current_batch_count,
-                "batch_size": batch_size
+                "batch_size": batch_size,
+                "files_limit": self.free_tier_limit,
+                "files_allowed": batch_size,
+                "would_exceed_by": 0
             }
 
         except Exception as e:
@@ -200,7 +240,10 @@ class RateLimitService:
                 "reason": "check_failed",
                 "message": "Could not verify limit, allowing request",
                 "current_batch_count": 0,
-                "batch_size": batch_size
+                "batch_size": batch_size,
+                "files_limit": self.free_tier_limit,
+                "files_allowed": batch_size,
+                "would_exceed_by": 0
             }
 
     async def check_compare_resumes_limit(self, email: str, resume_count: int) -> Dict:

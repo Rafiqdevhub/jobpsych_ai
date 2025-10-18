@@ -270,6 +270,8 @@ async def batch_analyze_resumes(
     """
     try:
         user_email = current_user.email
+        partial_upload = False
+        files_rejected = 0
 
         # ========== STEP 1: VALIDATE BATCH SIZE ==========
         if not files or len(files) == 0:
@@ -314,20 +316,34 @@ async def batch_analyze_resumes(
                     }
                 )
             else:  # file_limit_exceeded
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail={
-                        "success": False,
-                        "message": rate_limit_check["message"],
-                        "error": "RATE_LIMIT_EXCEEDED",
-                        "current_count": rate_limit_check["current_files_uploaded"],
-                        "batch_size": rate_limit_check["batch_size"],
-                        "limit": rate_limit_check["files_limit"],
-                        "would_exceed_by": rate_limit_check["would_exceed_by"],
-                        "upgrade_required": True,
-                        "upgrade_message": f"You've reached your free limit of {rate_limit_check['files_limit']} files. Upgrade to analyze more resumes."
-                    }
-                )
+                files_allowed = rate_limit_check.get("files_allowed", 0)
+                
+                if files_allowed <= 0:
+                    # User has hit the limit completely
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail={
+                            "success": False,
+                            "message": rate_limit_check["message"],
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "current_count": rate_limit_check.get("current_files_uploaded", 0),
+                            "batch_size": rate_limit_check.get("batch_size", 0),
+                            "limit": rate_limit_check.get("files_limit", 10),
+                            "files_allowed": 0,
+                            "upgrade_required": True,
+                            "upgrade_message": f"You've reached your free limit of {rate_limit_check.get('files_limit', 10)} files. Upgrade to analyze more resumes."
+                        }
+                    )
+                else:
+                    # User can upload some files - we'll process only what's allowed
+                    # This is communicated in the response instead of throwing an error
+                    # Continue with partial file processing
+                    files = files[:files_allowed]  # Trim to allowed count
+                    partial_upload = True
+                    files_rejected = rate_limit_check.get("would_exceed_by", 0)
+        else:
+            partial_upload = False
+            files_rejected = 0
 
         # ========== STEP 3: PROCESS FILES ==========
         results = []
@@ -452,6 +468,20 @@ async def batch_analyze_resumes(
             },
             "results": results
         }
+
+        # Add rejected files information if partial upload
+        if partial_upload and files_rejected > 0:
+            batch_response["upload_limit_info"] = {
+                "reached_limit": True,
+                "files_rejected": files_rejected,
+                "message": f"{files_rejected} file(s) were not processed because they would exceed your free limit of 10 files.",
+                "upgrade_prompt": {
+                    "show": True,
+                    "message": f"You've reached your free file limit. {files_rejected} file(s) could not be processed.",
+                    "cta": "Upgrade now to analyze all your resumes",
+                    "upgrade_required": True
+                }
+            }
 
         # Add upgrade prompt if approaching batch limit
         if approaching_limit:
