@@ -2,15 +2,16 @@ from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 import os
-
+from typing import Optional
 
 
 security = HTTPBearer()
 
 JWT_SECRET = os.getenv("JWT_ACCESS_SECRET") or os.getenv("JWT_SECRET")
 ALGORITHM = "HS256"
+
 class TokenData:
-    def __init__(self, email: str, user_id: str = None, name: str = None):
+    def __init__(self, email: str, user_id: Optional[str] = None, name: Optional[str] = None):
         self.email = email
         self.user_id = user_id
         self.name = name
@@ -46,15 +47,14 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         if len(token_parts) != 3:
             raise credentials_exception
         payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
-        email: str = payload.get("email")
-        user_id: str = payload.get("id") or payload.get("userId")
-        name: str = payload.get("name")
+        email: Optional[str] = payload.get("email")
+        user_id: Optional[str] = payload.get("id") or payload.get("userId")
+        name: Optional[str] = payload.get("name")
 
         if email is None:
             raise credentials_exception
         return TokenData(email=email, user_id=user_id, name=name)
-    except JWTError as e:
+    except JWTError:
         raise credentials_exception
-    except Exception as e:
-       
+    except Exception:
         raise credentials_exception

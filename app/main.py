@@ -18,7 +18,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="JobPsych ai",
-    version="2.0.0",
+    version="3.0.0",
     description="AI-powered resume analysis and job role recommendation service and HR interview question generation for HR professionals.",
 )
 

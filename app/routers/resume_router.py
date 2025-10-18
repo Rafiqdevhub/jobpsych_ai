@@ -1,19 +1,20 @@
-from fastapi import APIRouter, UploadFile, HTTPException, Request, Form, File, Depends
-from app.services.resume_parser import ResumeParser
-from app.services.role_recommender import RoleRecommender
-from app.services.question_generator import QuestionGenerator
-from app.models.schemas import (
-    ResumeAnalysisResponse, ResumeData, Question, PersonalInfo
-)
-from fastapi import status
+from fastapi import APIRouter, UploadFile, HTTPException, Request, Form, File, Depends, status
 from pydantic import ValidationError
 from typing import Optional, List
+import logging
+from app.services.resume_parser import ResumeParser
 from app.services.advanced_analyzer import AdvancedAnalyzer
-from app.dependencies.auth import get_current_user, TokenData
 from app.services.rate_limit_service import rate_limit_service
+from app.services.prompts import (
+    AnalyzeResumeService,
+    HiredeskService,
+    BatchAnalyzeService,
+    CompareResumesService
+)
+from app.models.schemas import ResumeAnalysisResponse, ResumeData, Question
+from app.dependencies.auth import get_current_user, TokenData
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -46,16 +47,14 @@ async def analyze_resume(
         # Parse the resume
         parser = ResumeParser()
         resume_data = await parser.parse(file)
-
         # Generate role recommendations with target role analysis
-        recommender = RoleRecommender()
+        analyze_service = AnalyzeResumeService()
         if target_role:
             # Analyze fit for target role + provide alternatives
-            role_recommendations = await recommender.analyze_role_fit(resume_data, target_role, job_description)
+            role_recommendations = await analyze_service.analyze_role_fit(resume_data, target_role, job_description)
         else:
             # General role recommendations
-            role_recommendations = await recommender.recommend_roles(resume_data)
-
+            role_recommendations = await analyze_service.generate(resume_data)
         # Create response with analysis results (no questions)
         response = ResumeAnalysisResponse(
             resumeData=ResumeData(**resume_data),
@@ -140,11 +139,15 @@ async def hiredesk_analyze(
         parser = ResumeParser()
         resume_data = await parser.parse(file)
 
-        recommender = RoleRecommender()
-        # Instead of only analyzing fit for the provided target_role, recommend best-fit roles from resume
-        role_recommendations = await recommender.recommend_roles(resume_data)
+        # Initialize hiredesk service for comprehensive analysis
+        hiredesk_service = HiredeskService()
+        
+        # Get role recommendations
+        role_recommendations = await hiredesk_service.generate(resume_data)
+        
         # Pick the top recommended role as the best fit
         best_fit_role = role_recommendations[0] if role_recommendations else target_role
+        
         # Always use string for role name
         if isinstance(best_fit_role, str):
             best_fit_role_name = best_fit_role
@@ -154,31 +157,33 @@ async def hiredesk_analyze(
             best_fit_role_name = str(best_fit_role)
 
         # Analyze fit for the best-fit role
-        fit_result = await recommender.analyze_role_fit(resume_data, best_fit_role_name, job_description)
+        fit_result = await hiredesk_service.analyze_role_fit(resume_data, best_fit_role_name, job_description)
         if isinstance(fit_result, dict):
             fit_status = "fit" if fit_result.get("fit", False) else "not fit"
             reasoning = fit_result.get("reasoning", "No reasoning provided.")
         else:
-            fit_status = "not fit"
-            reasoning = "Unexpected response format."
+            fit_status = "fit" if fit_result else "not fit"
+            reasoning = "Analyzed based on resume data."
 
         # Generate questions for the best-fit role and general resume
         questions = []
         try:
-            question_gen = QuestionGenerator()
             # General resume-based questions
-            general_questions = await question_gen.generate(resume_data)
+            general_questions_data = await hiredesk_service.generate_interview_questions(resume_data)
+            
             # Role-specific questions if candidate is fit
-            role_questions = []
+            role_questions_data = []
             if fit_status == "fit":
-                role_questions = await question_gen.generate_for_role(resume_data, best_fit_role_name, job_description)
-            from app.models.schemas import Question
+                role_questions_data = await hiredesk_service.generate_interview_questions(
+                    resume_data, best_fit_role_name, job_description
+                )
+            
             # Combine and deduplicate questions
-            all_questions = general_questions + role_questions
+            all_questions = general_questions_data + role_questions_data
             seen = set()
             questions = []
             for q in all_questions:
-                q_text = q["question"] if isinstance(q, dict) else getattr(q, "question", None)
+                q_text = q.get("question") if isinstance(q, dict) else getattr(q, "question", None)
                 if q_text and q_text not in seen:
                     questions.append(Question(**q) if isinstance(q, dict) else q)
                     seen.add(q_text)
@@ -199,8 +204,8 @@ async def hiredesk_analyze(
             personalityInsights=personality_insights,
             careerPath=career_path
         )
-        # Increment upload count after successful processing
-        increment_success = await rate_limit_service.increment_user_upload(current_user.email)
+        # Increment filesUploaded counter for single file upload
+        await rate_limit_service.increment_files_uploaded(current_user.email, 1)
 
         return {
             "success": True,
@@ -328,8 +333,9 @@ async def batch_analyze_resumes(
         results = []
         successful_files = []
         failed_files = []
+        batch_service = BatchAnalyzeService()
 
-        for idx, file in enumerate(files, 1):
+        for file in files:
             try:
                 # Validate file
                 if not file.filename:
@@ -350,14 +356,13 @@ async def batch_analyze_resumes(
                 parser = ResumeParser()
                 resume_data = await parser.parse(file)
 
-                # Generate role recommendations
-                recommender = RoleRecommender()
+                # Generate role recommendations using batch service
                 if target_role:
-                    role_recommendations = await recommender.analyze_role_fit(
+                    role_recommendations = await batch_service.analyze_role_fit(
                         resume_data, target_role, job_description
                     )
                 else:
-                    role_recommendations = await recommender.recommend_roles(resume_data)
+                    role_recommendations = await batch_service.generate(resume_data)
 
                 # Advanced analysis
                 advanced_analyzer = AdvancedAnalyzer()
@@ -413,10 +418,9 @@ async def batch_analyze_resumes(
         successful_count = len(successful_files)
 
         if successful_count > 0:
-            # Increment filesUploaded by number of successful files
-            files_incremented = await rate_limit_service.increment_upload_count(user_email, successful_count)
-            # Also increment batch_analysis counter for batch operation
-            batch_incremented = await rate_limit_service.increment_batch_counter(user_email)
+            # Increment batch_analysis counter by the number of files uploaded
+            # Example: 3 files uploaded → batch_analysis +3
+            await rate_limit_service.increment_batch_counter(user_email, successful_count)
 
         # ========== STEP 5: GET UPDATED STATS ==========
         updated_usage = await rate_limit_service.get_feature_usage(user_email)
@@ -427,9 +431,9 @@ async def batch_analyze_resumes(
                 "compare_resumes": 0
             }
 
-        files_remaining = rate_limit_service.free_tier_limit - updated_usage["files_uploaded"]
-        warning_at_files = 8
-        approaching_limit = updated_usage["files_uploaded"] >= warning_at_files
+        # For batch_analyze, only show batch_analysis counter
+        warning_at_batches = 10  # Warning threshold for batch operations
+        approaching_limit = updated_usage["batch_analysis"] >= warning_at_batches
 
         # ========== STEP 6: BUILD RESPONSE ==========
         batch_response = {
@@ -442,23 +446,20 @@ async def batch_analyze_resumes(
                 "success_rate": f"{(successful_count / len(files) * 100):.1f}%" if len(files) > 0 else "0%"
             },
             "usage_stats": {
-                "files_uploaded": updated_usage["files_uploaded"],
                 "batches_processed": updated_usage["batch_analysis"],
-                "files_remaining": files_remaining,
-                "files_limit": rate_limit_service.free_tier_limit,
                 "approaching_limit": approaching_limit,
-                "approaching_limit_threshold": warning_at_files
+                "approaching_limit_threshold": warning_at_batches
             },
             "results": results
         }
 
-        # Add upgrade prompt if approaching or exceeded limit
-        if approaching_limit or files_remaining <= 0:
+        # Add upgrade prompt if approaching batch limit
+        if approaching_limit:
             batch_response["upgrade_prompt"] = {
                 "show": True,
-                "message": f"You've used {updated_usage['files_uploaded']} of {rate_limit_service.free_tier_limit} free uploads.",
-                "cta": "Upgrade now to analyze unlimited resumes",
-                "files_remaining": max(0, files_remaining)
+                "message": f"You've processed {updated_usage['batch_analysis']} batch operations.",
+                "cta": "Upgrade now to process unlimited batches",
+                "batches_processed": updated_usage['batch_analysis']
             }
 
         # Add failed files details if any
@@ -569,6 +570,7 @@ async def compare_resumes(
         # ========== STEP 3: PROCESS & ANALYZE RESUMES ==========
         candidates = []
         failed_files = []
+        compare_service = CompareResumesService()
 
         for file in files:
             try:
@@ -591,7 +593,7 @@ async def compare_resumes(
                 parser = ResumeParser()
                 resume_data = await parser.parse(file)
 
-                # Calculate score
+                # Calculate score using compare service
                 advanced_analyzer = AdvancedAnalyzer()
                 score = await advanced_analyzer.calculate_resume_score(resume_data)
 
@@ -644,10 +646,8 @@ async def compare_resumes(
             )
 
         # ========== STEP 4: TRACK COMPARISON ==========
-        # Increment filesUploaded by number of successful resumes
-        files_incremented = await rate_limit_service.increment_upload_count(user_email, len(successful_candidates))
-        # Increment compare_resumes counter (separate endpoint)
-        comparison_incremented = await rate_limit_service.increment_compare_resumes_counter(user_email)
+        # Only increment compare_resumes counter (NOT filesUploaded)
+        await rate_limit_service.increment_compare_resumes_counter(user_email)
 
         # ========== STEP 5: GET UPDATED STATS ==========
         updated_usage = await rate_limit_service.get_feature_usage(user_email)
@@ -658,9 +658,9 @@ async def compare_resumes(
                 "compare_resumes": 0
             }
 
-        files_remaining = rate_limit_service.free_tier_limit - updated_usage["files_uploaded"]
-        warning_at_files = 8
-        approaching_limit = updated_usage["files_uploaded"] >= warning_at_files
+        # For compare_resumes, only show compare_resumes counter
+        warning_at_comparisons = 10  # Warning threshold for comparison operations
+        approaching_limit = updated_usage["compare_resumes"] >= warning_at_comparisons
 
         # ========== STEP 6: RANK & RETURN RESULTS ==========
         # Rank candidates by score
@@ -681,12 +681,9 @@ async def compare_resumes(
                 "average_score": sum([c.get("score", 0) for c in successful_candidates]) / len(successful_candidates) if successful_candidates else 0
             },
             "usage_stats": {
-                "files_uploaded": updated_usage["files_uploaded"],
-                "comparisons_completed": updated_usage["batch_analysis"],
-                "files_remaining": files_remaining,
-                "files_limit": rate_limit_service.free_tier_limit,
+                "comparisons_completed": updated_usage["compare_resumes"],
                 "approaching_limit": approaching_limit,
-                "approaching_limit_threshold": warning_at_files
+                "approaching_limit_threshold": warning_at_comparisons
             },
             "ranked_candidates": ranked_candidates,
             "recommendations": [
@@ -696,13 +693,13 @@ async def compare_resumes(
             ]
         }
 
-        # Add upgrade prompt if approaching or exceeded limit
-        if approaching_limit or files_remaining <= 0:
+        # Add upgrade prompt if approaching comparison limit
+        if approaching_limit:
             comparison_response["upgrade_prompt"] = {
                 "show": True,
-                "message": f"You've used {updated_usage['files_uploaded']} of {rate_limit_service.free_tier_limit} free uploads.",
+                "message": f"You've completed {updated_usage['compare_resumes']} comparisons.",
                 "cta": "Upgrade now to compare unlimited resumes",
-                "files_remaining": max(0, files_remaining)
+                "comparisons_completed": updated_usage['compare_resumes']
             }
 
         # Add failed files details if any

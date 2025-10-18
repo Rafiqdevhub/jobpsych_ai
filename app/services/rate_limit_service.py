@@ -8,15 +8,16 @@ logger = logging.getLogger(__name__)
 
 class RateLimitService:
     def __init__(self):
-        self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "https://jobpsych-payment.vercel.app/api")
+        self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "https://jobpsych-auth.vercel.app/api")
         # self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "http://localhost:5000/api")
         self.upload_limit = 10
         self.batch_size_limit = 5  # Files per batch
         self.free_tier_limit = 10  # Total files for free users
 
-    async def check_user_upload_limit(self, email: str) -> Dict:
+    async def check_files_uploaded_limit(self, email: str) -> Dict:
         """
-        Check user upload count from Express.js auth service
+        Check filesUploaded count (used by hiredesk_analyze)
+        For single file uploads
         """
         try:
             async with aiohttp.ClientSession() as session:
@@ -67,30 +68,48 @@ class RateLimitService:
                 "remaining": self.upload_limit
             }
 
-    async def increment_user_upload(self, email: str) -> bool:
+    async def check_user_upload_limit(self, email: str) -> Dict:
+        return await self.check_files_uploaded_limit(email)
+
+    async def increment_files_uploaded(self, email: str, count: int = 1) -> bool:
         """
-        Increment user upload count in Express.js auth service
+        Increment filesUploaded counter for hiredesk_analyze
+        Used for single file uploads via hiredesk_analyze endpoint
+        
+        Args:
+            email: User email
+            count: Number of files to increment (default 1)
+        
+        Returns: True if successful, False otherwise
         """
+        normalized_email = email.lower().strip()
+        
+        if count <= 0:
+            return False
+
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self.auth_service_url}/increment-upload",
-                    json={"email": email},
-                    headers={"Content-Type": "application/json"},
-                    timeout=aiohttp.ClientTimeout(total=10)
-                ) as response:
-                    if response.status == 200:
-                        return True
-                    else:
-                        return False
+            # Call increment endpoint 'count' times for each successful file
+            success_count = 0
+            for i in range(count):
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        f"{self.auth_service_url}/increment-upload",
+                        json={"email": normalized_email},
+                        headers={"Content-Type": "application/json"},
+                        timeout=aiohttp.ClientTimeout(total=10)
+                    ) as response:
+                        if response.status == 200:
+                            success_count += 1
+
+            return success_count > 0  # Return True if at least one succeeded
+
         except Exception as e:
             return False
 
+    async def increment_user_upload(self, email: str) -> bool:
+        return await self.increment_files_uploaded(email, 1)
+
     async def get_feature_usage(self, email: str) -> Optional[Dict]:
-        """
-        Get all feature usage stats from Express.js auth service
-        Returns: { filesUploaded, batch_analysis, compare_resumes }
-        """
         try:
             # Normalize email to lowercase
             normalized_email = email.lower().strip()
@@ -125,11 +144,6 @@ class RateLimitService:
             return None
 
     async def ensure_user_exists(self, email: str) -> bool:
-        """
-        Check if user exists in Express.js auth service
-        
-        Returns: True if user exists, False if not found
-        """
         try:
             # Normalize email
             normalized_email = email.lower().strip()
@@ -146,103 +160,94 @@ class RateLimitService:
             return False
 
     async def check_batch_analysis_limit(self, email: str, batch_size: int) -> Dict:
-        """
-        Check if user can process a batch for analysis
-        
-        Args:
-            email: User email
-            batch_size: Number of files in the batch
-        
-        Returns:
-        {
-            "allowed": bool,
-            "reason": str,  # "ok" | "batch_size_exceeded" | "file_limit_exceeded" | "upgrade_required"
-            "current_files_uploaded": int,
-            "current_batches": int,
-            "batch_size": int,
-            "files_limit": int,
-            "files_remaining": int,
-            "would_exceed_by": int,  # How many over limit
-            "warning_threshold": int  # e.g., 8 (warn at 8 files)
-        }
-        """
         try:
-            # Validate batch size
+            # Validate batch size (max 5 files per batch)
             if batch_size > self.batch_size_limit:
                 return {
                     "allowed": False,
                     "reason": "batch_size_exceeded",
                     "message": f"Maximum {self.batch_size_limit} files per batch. You submitted {batch_size}.",
-                    "batch_size_limit": self.batch_size_limit,
+                    "batch_limit": self.batch_size_limit,
                     "submitted": batch_size
                 }
 
-            # Get current usage stats
+            # Get current batch_analysis counter (independent check)
             usage = await self.get_feature_usage(email)
             if usage is None:
+                # Service unavailable - fail open
                 return {
                     "allowed": True,
                     "reason": "service_unavailable",
-                    "message": "Could not verify limit, allowing request"
+                    "message": "Could not verify limit, allowing request",
+                    "current_batch_count": 0,
+                    "batch_size": batch_size
                 }
 
-            current_files = usage["files_uploaded"]
-            current_batches = usage["batch_analysis"]
-            would_be_total = current_files + batch_size
-            warning_threshold = 8  # Warn users at 8 files
-
-            # Check if would exceed limit
-            if would_be_total > self.free_tier_limit:
-                files_over = would_be_total - self.free_tier_limit
-                return {
-                    "allowed": False,
-                    "reason": "file_limit_exceeded",
-                    "message": f"Upload limit exceeded. Current: {current_files}, Batch size: {batch_size}, Limit: {self.free_tier_limit}. Would exceed by {files_over} files.",
-                    "current_files_uploaded": current_files,
-                    "current_batches": current_batches,
-                    "batch_size": batch_size,
-                    "files_limit": self.free_tier_limit,
-                    "would_be_total": would_be_total,
-                    "files_remaining": 0,
-                    "would_exceed_by": files_over,
-                    "upgrade_required": True
-                }
-
-            # Check if approaching limit (warn)
-            warning = False
-            if would_be_total >= warning_threshold:
-                warning = True
-
-            files_remaining = self.free_tier_limit - would_be_total
+            current_batch_count = usage.get("batch_analysis", 0)
 
             return {
                 "allowed": True,
                 "reason": "ok",
-                "current_files_uploaded": current_files,
-                "current_batches": current_batches,
-                "batch_size": batch_size,
-                "files_limit": self.free_tier_limit,
-                "files_remaining": files_remaining,
-                "would_be_total": would_be_total,
-                "warning": warning,
-                "warning_threshold": warning_threshold,
-                "upgrade_required": False
+                "message": f"Batch analysis allowed. Current batches: {current_batch_count}",
+                "current_batch_count": current_batch_count,
+                "batch_size": batch_size
             }
 
         except Exception as e:
-            # Fail open - allow request but log the error
+            # Fail open - allow request
             return {
                 "allowed": True,
                 "reason": "check_failed",
-                "message": "Could not verify limit, allowing request"
+                "message": "Could not verify limit, allowing request",
+                "current_batch_count": 0,
+                "batch_size": batch_size
             }
 
-    async def increment_batch_counter(self, email: str) -> bool:
-        """
-        Increment batch_analysis counter (one batch processed)
-        
-        Calls: POST /increment-batch-analysis
-        """
+    async def check_compare_resumes_limit(self, email: str, resume_count: int) -> Dict:
+        try:
+            # Validate resume count (max 5 resumes per comparison)
+            if resume_count > self.batch_size_limit:
+                return {
+                    "allowed": False,
+                    "reason": "resume_count_exceeded",
+                    "message": f"Maximum {self.batch_size_limit} resumes allowed. You submitted {resume_count}.",
+                    "resume_limit": self.batch_size_limit,
+                    "submitted": resume_count
+                }
+
+            # Get current compare_resumes counter (independent check)
+            usage = await self.get_feature_usage(email)
+            if usage is None:
+                # Service unavailable - fail open
+                return {
+                    "allowed": True,
+                    "reason": "service_unavailable",
+                    "message": "Could not verify limit, allowing request",
+                    "current_compare_count": 0,
+                    "resume_count": resume_count
+                }
+
+            current_compare_count = usage.get("compare_resumes", 0)
+
+            return {
+                "allowed": True,
+                "reason": "ok",
+                "message": f"Resume comparison allowed. Current comparisons: {current_compare_count}",
+                "current_compare_count": current_compare_count,
+                "resume_count": resume_count
+            }
+
+        except Exception as e:
+            # Fail open - allow request
+            return {
+                "allowed": True,
+                "reason": "check_failed",
+                "message": "Could not verify limit, allowing request",
+                "current_compare_count": 0,
+                "resume_count": resume_count
+            }
+
+    async def increment_batch_counter(self, email: str, count: int = 1) -> bool:
         try:
             # Normalize email
             normalized_email = email.lower().strip()
@@ -251,7 +256,7 @@ class RateLimitService:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     url,
-                    json={"email": normalized_email},
+                    json={"email": normalized_email, "count": count},
                     headers={"Content-Type": "application/json"},
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
@@ -268,11 +273,6 @@ class RateLimitService:
             return True
 
     async def increment_compare_resumes_counter(self, email: str) -> bool:
-        """
-        Increment compare_resumes counter (one comparison completed)
-        
-        Calls: POST /increment-compare-resumes
-        """
         try:
             # Normalize email
             normalized_email = email.lower().strip()
@@ -298,35 +298,7 @@ class RateLimitService:
             return True
 
     async def increment_upload_count(self, email: str, count: int = 1) -> bool:
-        """
-        Increment upload count by N files
-        
-        Uses dedicated endpoint: POST /increment-upload
-        """
-        # Normalize email
-        normalized_email = email.lower().strip()
-        
-        if count <= 0:
-            return False
-
-        try:
-            # Call increment endpoint 'count' times for each successful file
-            success_count = 0
-            for i in range(count):
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        f"{self.auth_service_url}/increment-upload",
-                        json={"email": normalized_email},
-                        headers={"Content-Type": "application/json"},
-                        timeout=aiohttp.ClientTimeout(total=10)
-                    ) as response:
-                        if response.status == 200:
-                            success_count += 1
-
-            return success_count > 0  # Return True if at least one succeeded
-
-        except Exception as e:
-            return False
+        return await self.increment_files_uploaded(email, count)
 
 # Global instance
 rate_limit_service = RateLimitService()
