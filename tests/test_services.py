@@ -279,7 +279,7 @@ def test_app_startup():
     """Test application starts without errors"""
     assert app is not None
     assert app.title == "JobPsych ai"
-    assert app.version == "2.0.0"
+    assert app.version == "3.0.0"
 
 
 # ============================================================================

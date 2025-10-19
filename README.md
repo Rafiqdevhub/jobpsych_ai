@@ -10,35 +10,35 @@ AI-powered resume analysis and job role recommendation service for HR profession
 
 ### Core Functionality
 
-- Resume Parsing: Extract information from PDF and DOCX resume files
-- Job Role Recommendations: AI-powered suggestions for best-fitting job roles with match percentages
-- Skill Gap Analysis: Identify missing skills and provide learning recommendations
-- Interview Question Generation: Generate tailored interview questions (technical, behavioral, experience-based)
-- Resume Scoring: Comprehensive scoring (0-100) with breakdown by technical, experience, education, and communication skills
+- **Resume Parsing**: Extract information from PDF and DOCX resume files
+- **Job Role Recommendations**: AI-powered suggestions for best-fitting job roles with match percentages
+- **Skill Gap Analysis**: Identify missing skills and provide learning recommendations
+- **Interview Question Generation**: Generate tailored interview questions (technical, behavioral, experience-based)
+- **Resume Scoring**: Comprehensive scoring (0-100) with breakdown by technical, experience, education, and communication skills
 
 ### Advanced Features
 
-- Personality Insights: AI-powered personality analysis and work style assessment
-- Career Path Prediction: Predict career advancement and timeline
-- Batch Processing: Analyze multiple resumes simultaneously
-- Resume Comparison: Compare and rank multiple candidates
-- Role Fit Analysis: Analyze candidate fit for specific job roles with detailed reasoning
+- **Personality Insights**: AI-powered personality analysis and work style assessment
+- **Career Path Prediction**: Predict career advancement and timeline
+- **Batch Processing**: Analyze multiple resumes simultaneously
+- **Resume Comparison**: Compare and rank multiple candidates
+- **Role Fit Analysis**: Analyze candidate fit for specific job roles with detailed reasoning
 
 ### Technical Features
 
-- RESTful API: Clean, documented API endpoints with automatic OpenAPI documentation
-- JWT Authentication: Secure endpoints with token-based authentication
-- Rate Limiting: IP-based rate limiting (5 requests/day for public endpoints)
-- Docker Support: Containerized deployment with Docker Compose
-- Vercel Ready: Serverless deployment configuration
-- Comprehensive Testing: 44 automated tests with 37% code coverage
-- Type Safety: Full type hints with mypy validation
-- Code Quality: Ruff linting and formatting
+- **RESTful API**: Clean, documented API endpoints with automatic OpenAPI documentation
+- **JWT Authentication**: Secure endpoints with token-based authentication
+- **Rate Limiting**: IP-based rate limiting (5 requests/day for public endpoints)
+- **Docker Support**: Containerized deployment with Docker Compose
+- **Vercel Ready**: Serverless deployment configuration
+- **Comprehensive Testing**: 44 automated tests with pytest coverage
+- **Type Safety**: Full type hints with mypy validation
+- **Code Quality**: Ruff linting and formatting
 
 ## Tech Stack
 
 - **Backend**: FastAPI 0.115+ (Python web framework)
-- **AI Engine**: Google Gemini AI
+- **AI Engine**: Google Gemini AI 2.5 Flash
 - **Document Processing**: pypdf, pdfplumber, python-docx
 - **Data Validation**: Pydantic
 - **Authentication**: python-jose with JWT
@@ -61,19 +61,18 @@ AI-powered resume analysis and job role recommendation service for HR profession
 ### 1. Clone the Repository
 
 ```bash
-git clone
-cd
+git clone https://github.com/Rafiqdevhub/AI-Resume-Analayzer_Backend.git
+cd AI-Resume-Analayzer_Backend
 ```
 
 ### 2. Set Up Environment Variables
 
-````bash
-# Copy the environment template
-cp .env.example .env
+Create a `.env` file in the root directory:
+
 ```bash
 # Copy the environment template
 cp .env.example .env
-````
+```
 
 Edit `.env` and add your configuration:
 
@@ -88,6 +87,9 @@ JWT_ACCESS_SECRET="your_jwt_access_secret_here"
 # FastAPI Settings (Optional)
 HOST="localhost"
 PORT="8000"
+
+# Authentication Service URL (Optional - defaults to production)
+AUTH_SERVICE_URL="https://jobpsych-auth.vercel.app/api"
 ```
 
 ### 3. Install Dependencies
@@ -125,16 +127,13 @@ pip install -r requirements.txt
 
 ### Development Mode
 
-#### Using uv
+#### Using uv (Development)
 
-````bash
 ```bash
 uv run uvicorn app.main:app --port 8000 --reload
-````
+```
 
-#### Using pip
-
-````bash
+#### Using pip (Development)
 
 ```bash
 # Activate virtual environment first
@@ -142,17 +141,17 @@ uv run uvicorn app.main:app --port 8000 --reload
 source .venv/bin/activate  # macOS/Linux
 
 uvicorn app.main:app --port 8000 --reload
-````
+```
 
 ### Production Mode
 
-#### Using uv
+#### Using uv (Production)
 
 ```bash
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-#### Using pip
+#### Using pip (Production)
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -206,7 +205,7 @@ Once the application is running, visit:
   "app_name": "JobPsych AI - Role Suggestion and HR Intelligence Platform",
   "message": "AI-Powered Resume Analysis & Job Role Recommendation Service",
   "status": "running",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "core_capabilities": {
     "resume_parsing": {...},
     "ai_analysis": {...},
@@ -240,18 +239,9 @@ Once the application is running, visit:
 }
 ```
 
-#### 3. CORS Test (`GET /api/cors-test`)
-
-**Purpose**: Test CORS configuration and connectivity
-
-**Workflow**:
-
-1. Validates cross-origin request handling
-2. Returns success confirmation with timestamp
-
 ### Resume Analysis Endpoints
 
-#### 4. Basic Resume Analysis (`POST /api/analyze-resume`)
+#### 3. Basic Resume Analysis (`POST /api/analyze-resume`)
 
 **Purpose**: Quick resume analysis with role recommendations (Public endpoint)
 
@@ -306,13 +296,38 @@ curl -X POST "http://localhost:8000/api/analyze-resume" \
       "reasoning": "Strong technical skills match...",
       "requiredSkills": ["Python", "React"],
       "missingSkills": ["Kubernetes"],
-      "learningResources": [...]
+      "careerLevel": "Mid-level",
+      "industryFit": "Good"
     }
-  ]
+  ],
+  "resumeScore": {
+    "overall_score": 82,
+    "technical_score": 85,
+    "experience_score": 80,
+    "education_score": 90,
+    "communication_score": 75,
+    "reasoning": "Strong technical background...",
+    "strengths": ["Technical expertise", "Problem-solving"],
+    "weaknesses": ["Limited leadership experience"],
+    "improvement_suggestions": [...]
+  },
+  "personalityInsights": {
+    "traits": {"analytical": 85, "collaborative": 78},
+    "work_style": "Analytical and collaborative",
+    "leadership_potential": 75,
+    "team_player_score": 82,
+    "analysis": "Detail-oriented professional..."
+  },
+  "careerPath": {
+    "current_level": "Senior Individual Contributor",
+    "next_roles": ["Tech Lead", "Engineering Manager"],
+    "timeline": "2-3 years",
+    "required_development": ["Leadership skills", "Project management"]
+  }
 }
 ```
 
-#### 5. Advanced HR Analysis (`POST /api/hiredesk-analyze`)
+#### 4. Advanced HR Analysis (`POST /api/hiredesk-analyze`)
 
 **Purpose**: Comprehensive HR analysis with full AI insights (Authenticated endpoint)
 
@@ -348,13 +363,16 @@ curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
      -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
      -F "file=@resume.pdf" \
      -F "target_role=Product Manager" \
-     -F "job_description=Lead product development for SaaS platform. 5+ years experience in product management, agile methodologies, data analysis, stakeholder management..."
+     -F "job_description=Detailed job requirements with responsibilities, skills, and qualifications..."
 ```
 
 **Response Structure**:
 
 ```json
 {
+  "success": true,
+  "fit_status": "fit",
+  "reasoning": "Strong alignment with product management requirements",
   "resumeData": {
     "personalInfo": {...},
     "workExperience": [...],
@@ -362,63 +380,68 @@ curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
     "skills": [...],
     "highlights": [...]
   },
+  "roleRecommendations": [...],
   "questions": [
     {
       "question": "Can you describe a time when you led a cross-functional team through a product launch?",
       "type": "behavioral",
-      "category": "leadership"
+      "context": "Assesses leadership and project management experience"
     },
     {
       "question": "How do you prioritize features in your product roadmap?",
       "type": "technical",
-      "category": "product_management"
+      "context": "Tests product management methodology and decision-making"
     }
   ],
-  "roleRecommendations": [...],
+  "best_fit_role": "Product Manager",
   "resumeScore": {
-    "overall_score": 82,
-    "technical_score": 85,
-    "experience_score": 80,
+    "overall_score": 85,
+    "technical_score": 82,
+    "experience_score": 88,
     "education_score": 90,
-    "communication_score": 75,
-    "strengths": ["Strong technical background", "Leadership experience"],
-    "weaknesses": ["Limited formal product management education"],
-    "recommendations": [...]
+    "communication_score": 80,
+    "reasoning": "Excellent product management background...",
+    "strengths": ["Strategic thinking", "Team leadership"],
+    "weaknesses": ["Limited technical depth"],
+    "improvement_suggestions": [...]
   },
   "personalityInsights": {
-    "work_style": "Analytical and collaborative",
-    "leadership_style": "Transformational",
-    "communication_style": "Clear and concise",
-    "decision_making": "Data-driven approach"
+    "traits": {"strategic": 88, "collaborative": 85},
+    "work_style": "Strategic and collaborative",
+    "leadership_potential": 90,
+    "team_player_score": 88,
+    "analysis": "Natural leader with strong analytical skills..."
   },
   "careerPath": {
-    "current_level": "Senior Individual Contributor",
-    "next_roles": ["Product Manager", "Engineering Manager"],
-    "timeline": "2-3 years",
-    "development_areas": [...]
+    "current_level": "Senior Product Manager",
+    "next_roles": ["Director of Product", "VP of Product"],
+    "timeline": "3-5 years",
+    "required_development": ["Executive leadership", "Strategic planning"]
   }
 }
 ```
 
-#### 6. Batch Resume Analysis (`POST /api/batch-analyze`)
+#### 5. Batch Resume Analysis (`POST /api/batch-analyze`)
 
 **Purpose**: Process multiple resumes simultaneously for bulk analysis
 
-**Authentication**: ❌ None required
-**Rate Limit**: 10 resumes per batch request
+**Authentication**: ✅ JWT token required
+**Rate Limit**: Maximum 5 files per batch, 10 files total per account
 **File Support**: PDF, DOCX, DOC (max 10MB each)
 
 **Workflow**:
 
-1. **Batch Validation**: Accept 2-10 resume files
-2. **Parallel Processing**: Process each resume independently
-3. **Error Handling**: Continue processing other files if one fails
-4. **Comprehensive Analysis**: Full AI analysis for each resume
-5. **Results Aggregation**: Return array of analysis results
+1. **Authentication**: Validate JWT token
+2. **Batch Validation**: Accept 2-5 resume files
+3. **Rate Limit Check**: Verify user has enough remaining file quota
+4. **Parallel Processing**: Process each resume independently
+5. **Error Handling**: Continue processing other files if one fails
+6. **Results Aggregation**: Return array of analysis results
+7. **Counter Updates**: Increment batch counter and file counters
 
 **Parameters**:
 
-- `files` (required): Array of resume files (2-10 files)
+- `files` (required): Array of resume files (2-5 files)
 - `target_role` (optional): Analyze all resumes against this role
 - `job_description` (optional): Job requirements for focused analysis
 
@@ -426,51 +449,67 @@ curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
 
 ```bash
 curl -X POST "http://localhost:8000/api/batch-analyze" \
+     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
      -F "files=@candidate1.pdf" \
      -F "files=@candidate2.pdf" \
      -F "files=@candidate3.pdf" \
-     -F "target_role=Frontend Developer" \
-     -F "job_description=Build responsive web applications using React, TypeScript, and modern CSS frameworks..."
+     -F "target_role=Data Scientist" \
+     -F "job_description=Analyze large datasets, build ML models, Python, SQL, statistics..."
 ```
 
 **Response Structure**:
 
 ```json
-[
-  {
-    "resumeData": {...},
-    "questions": [...],
-    "roleRecommendations": [...],
-    "resumeScore": {...},
-    "personalityInsights": {...},
-    "careerPath": {...}
+{
+  "success": true,
+  "message": "Batch analysis completed. 3 of 3 files processed successfully.",
+  "batch_summary": {
+    "total_submitted": 3,
+    "successful": 3,
+    "failed": 0,
+    "success_rate": "100.0%"
   },
-  {
-    "resumeData": {...},
-    "questions": [...],
-    "roleRecommendations": [...],
-    "resumeScore": {...},
-    "personalityInsights": {...},
-    "careerPath": {...}
-  }
-]
+  "usage_stats": {
+    "batches_processed": 2,
+    "approaching_limit": false,
+    "approaching_limit_threshold": 10
+  },
+  "results": [
+    {
+      "file_name": "candidate1.pdf",
+      "status": "success",
+      "data": {
+        "resumeData": {...},
+        "questions": [],
+        "roleRecommendations": [...],
+        "resumeScore": {...},
+        "personalityInsights": {...},
+        "careerPath": {...}
+      },
+      "error": null
+    }
+  ]
+}
 ```
 
-#### 7. Resume Comparison (`POST /api/compare-resumes`)
+#### 6. Resume Comparison (`POST /api/compare-resumes`)
 
 **Purpose**: Compare and rank multiple candidates for the same position
 
-**Authentication**: ❌ None required
-**Rate Limit**: 5 resumes per comparison request
+**Authentication**: ✅ JWT token required
+**Rate Limit**: Maximum 5 files per comparison, 10 files total per account
 **File Support**: PDF, DOCX, DOC (max 10MB each)
 
 **Workflow**:
 
-1. **Comparison Setup**: Accept 2-5 resume files
-2. **Individual Scoring**: Calculate comprehensive scores for each candidate
-3. **Ranking Algorithm**: Sort candidates by overall score (descending)
-4. **Comparison Summary**: Generate aggregate statistics
-5. **HR Recommendations**: Provide hiring guidance based on scores
+1. **Authentication**: Validate JWT token
+2. **Comparison Setup**: Accept 2-5 resume files
+3. **Rate Limit Check**: Verify user has enough remaining file quota
+4. **Individual Scoring**: Calculate comprehensive scores for each candidate
+5. **Ranking Algorithm**: Sort candidates by overall score (descending)
+6. **Comparison Summary**: Generate aggregate statistics
+7. **HR Recommendations**: Provide hiring guidance based on scores
+8. **Counter Updates**: Increment comparison counter and file counters
 
 **Parameters**:
 
@@ -480,6 +519,7 @@ curl -X POST "http://localhost:8000/api/batch-analyze" \
 
 ```bash
 curl -X POST "http://localhost:8000/api/compare-resumes" \
+     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
      -F "files=@candidate_a.pdf" \
      -F "files=@candidate_b.pdf" \
      -F "files=@candidate_c.pdf" \
@@ -490,11 +530,20 @@ curl -X POST "http://localhost:8000/api/compare-resumes" \
 
 ```json
 {
+  "success": true,
+  "message": "Comparison completed. 4 resumes analyzed successfully.",
   "comparison_summary": {
-    "total_candidates": 4,
+    "total_submitted": 4,
+    "successful": 4,
+    "failed": 0,
     "highest_score": 88,
     "average_score": 76.5,
     "score_range": "65-88"
+  },
+  "usage_stats": {
+    "comparisons_completed": 3,
+    "approaching_limit": false,
+    "approaching_limit_threshold": 10
   },
   "ranked_candidates": [
     {
@@ -528,12 +577,12 @@ curl -X POST "http://localhost:8000/api/compare-resumes" \
 ### Scenario 1: Initial Candidate Screening
 
 ```bash
-# Step 1: Quick analysis of single resume
+# Step 1: Quick analysis of single resume (Public)
 curl -X POST "http://localhost:8000/api/analyze-resume" \
      -F "file=@candidate_resume.pdf" \
      -F "target_role=Software Engineer"
 
-# Step 2: If promising, get detailed analysis
+# Step 2: If promising, get detailed analysis (Authenticated)
 curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
      -F "file=@candidate_resume.pdf" \
@@ -544,15 +593,17 @@ curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
 ### Scenario 2: Bulk Recruitment Drive
 
 ```bash
-# Step 1: Batch analyze all applications
+# Step 1: Batch analyze all applications (Authenticated)
 curl -X POST "http://localhost:8000/api/batch-analyze" \
+     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
      -F "files=@app1.pdf" \
      -F "files=@app2.pdf" \
      -F "files=@app3.pdf" \
      -F "target_role=Data Scientist"
 
-# Step 2: Compare top candidates
+# Step 2: Compare top candidates (Authenticated)
 curl -X POST "http://localhost:8000/api/compare-resumes" \
+     -H "Authorization: Bearer YOUR_JWT_TOKEN" \
      -F "files=@top_candidate1.pdf" \
      -F "files=@top_candidate2.pdf" \
      -F "files=@top_candidate3.pdf"
@@ -561,8 +612,7 @@ curl -X POST "http://localhost:8000/api/compare-resumes" \
 ### Scenario 3: HR Dashboard Integration
 
 ```bash
-# Step 1: Authenticate user
-# (JWT token obtained from authentication service)
+# Step 1: Authenticate user (Get JWT token from auth service)
 
 # Step 2: Upload and analyze resume
 curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
@@ -571,7 +621,10 @@ curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
      -F "target_role=${JOB_ROLE}" \
      -F "job_description=${JOB_DESCRIPTION}"
 
-# Step 3: Store results in HR system
+# Step 3: Monitor usage statistics
+curl -X GET "https://jobpsych-auth.vercel.app/api/user-uploads/${USER_EMAIL}"
+
+# Step 4: Store results in HR system
 # Process the comprehensive analysis response
 ```
 
@@ -579,19 +632,36 @@ curl -X POST "http://localhost:8000/api/hiredesk-analyze" \
 
 ### Public Endpoints
 
-- **`/api/analyze-resume`**: 5 requests per day per IP address
-- **`/api/batch-analyze`**: No specific limit (reasonable usage expected)
-- **`/api/compare-resumes`**: No specific limit (reasonable usage expected)
+- **`/api/analyze-resume`**: 5 requests per day per IP address (slowapi rate limiter)
 
 ### Authenticated Endpoints
 
-- **`/api/hiredesk-analyze`**: 10 files per user account (tracked via external service)
+- **`/api/hiredesk-analyze`**: Part of 10-file account limit
+- **`/api/batch-analyze`**: Maximum 5 files per batch, part of 10-file account limit
+- **`/api/compare-resumes`**: Maximum 5 files per comparison, part of 10-file account limit
 
 ### File Upload Limits
 
 - **Maximum file size**: 10MB per file
 - **Supported formats**: PDF, DOCX, DOC
-- **Batch limits**: 2-10 files for batch analysis, 2-5 files for comparison
+- **Batch limits**: 2-5 files maximum per batch operation
+- **Comparison limits**: 2-5 files maximum per comparison
+- **Account limits**: 10 files maximum per user account (free tier)
+
+### Usage Tracking
+
+The system tracks three separate counters:
+
+1. **filesUploaded**: Total count of all files processed across all endpoints
+2. **batch_analysis**: Number of batch analysis operations performed
+3. **compare_resumes**: Number of comparison operations performed
+
+### Rate Limit Behavior
+
+- **Fail-open strategy**: If rate limit service is unavailable, requests are allowed
+- **Exact counting**: All files are counted exactly as they are processed
+- **Warning thresholds**: Users are warned at 80% usage (8 of 10 files)
+- **Upgrade prompts**: Clear upgrade messaging when limits are reached
 
 ### Error Handling
 
@@ -616,10 +686,22 @@ jobpsych_ai/
 │   │   ├── question_generator.py    # AI-powered interview question generation
 │   │   ├── role_recommender.py      # Job role recommendations and fit analysis
 │   │   ├── advanced_analyzer.py     # Advanced analysis (scoring, personality, career)
-│   │   └── rate_limit_service.py    # Rate limiting service
-│   └── models/
-│       └── schemas.py               # Pydantic models and API response schemas
+│   │   ├── rate_limit_service.py    # Rate limiting service
+│   │   └── prompts/
+│   │       ├── __init__.py
+│   │       ├── base_prompt_service.py    # Base prompt service with shared utilities
+│   │       ├── analyze_resume_service.py # Basic analysis prompts
+│   │       ├── hiredesk_service.py       # Advanced HR analysis prompts
+│   │       ├── batch_analyze_service.py  # Batch processing prompts
+│   │       └── compare_resumes_service.py # Comparison prompts
+│   ├── models/
+│   │   └── schemas.py               # Pydantic models and API response schemas
+│   ├── dependencies/
+│   │   └── auth.py                  # JWT authentication dependency
+│   └── routers/
+│       └── resume_router.py         # API route definitions and request handlers
 ├── tests/
+│   ├── __init__.py                  # Package marker
 │   ├── test_services.py             # Integration tests (25 tests)
 │   ├── test_unit.py                 # Unit tests (19 tests)
 │   └── __init__.py                  # Package marker
@@ -648,6 +730,7 @@ jobpsych_ai/
 | `JWT_ACCESS_SECRET` | Access token secret (fallback to JWT_SECRET) | No             | -         |
 | `HOST`              | Server host                                  | No             | localhost |
 | `PORT`              | Server port                                  | No             | 8000      |
+| `AUTH_SERVICE_URL`  | External authentication service URL          | No             | Production URL |
 
 ### CORS Configuration
 
@@ -758,7 +841,6 @@ The project includes GitHub Actions for automated:
 
 - **pytest>=8.0.0**: Testing framework
 - **pytest-asyncio>=0.23.0**: Async test support
-- **pytest-cov>=4.1.0**: Coverage reporting
 - **httpx>=0.25.0**: HTTP client for testing
 - **ruff>=0.1.0**: Fast Python linter and formatter
 - **mypy>=1.8.0**: Static type checking
@@ -833,3 +915,38 @@ uv pip install pypdf
 # Or reinstall all dependencies
 uv sync --dev
 ```
+
+#### 7. Authentication Issues
+
+```bash
+# Check JWT token format
+# Should be: Authorization: Bearer <token>
+
+# Verify token with auth service
+curl "https://jobpsych-auth.vercel.app/api/verify-token" \
+     -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+#### 8. Rate Limit Errors
+
+```bash
+# Check current usage
+curl "https://jobpsych-auth.vercel.app/api/user-uploads/YOUR_EMAIL"
+
+# Reset counters (development only)
+# Contact admin for production resets
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For support and questions:
+
+- **Documentation**: <http://localhost:8000/docs> (when running locally)
+- **Issues**: <https://github.com/Rafiqdevhub/AI-Resume-Analayzer_Backend/issues>
+- **Discussions**: <https://github.com/Rafiqdevhub/AI-Resume-Analayzer_Backend/discussions>
+
+Built for HR professionals and recruitment teams worldwide.
