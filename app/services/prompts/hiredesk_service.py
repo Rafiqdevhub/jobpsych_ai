@@ -14,7 +14,6 @@ except ImportError:
 class HiredeskService(BasePromptService):
     """
     Prompt service for /hiredesk-analyze endpoint.
-    
     Handles:
     - Comprehensive resume analysis
     - Role recommendations with best fit detection
@@ -22,10 +21,8 @@ class HiredeskService(BasePromptService):
     - Question generation for interviews
     - Resume scoring and personality analysis
     - Career path prediction
-    
     Maintains same logic as existing services combined (RoleRecommender, QuestionGenerator, AdvancedAnalyzer)
     """
-
     def __init__(self):
         """Initialize the hiredesk analysis service."""
         super().__init__()
@@ -60,11 +57,9 @@ class HiredeskService(BasePromptService):
     async def generate(self, resume_data: Dict[str, Any], **kwargs) -> List[RoleRecommendation]:
         """
         Generate general role recommendations for comprehensive analysis.
-        
         Args:
             resume_data: Parsed resume data dictionary
             **kwargs: Additional arguments (not used)
-            
         Returns:
             List of RoleRecommendation objects
         """
@@ -94,12 +89,10 @@ class HiredeskService(BasePromptService):
     ) -> List[RoleRecommendation]:
         """
         Analyze if candidate fits the target role.
-        
         Args:
             resume_data: Parsed resume data dictionary
             target_role: Target job role to analyze fit for
             job_description: Optional job description for better analysis
-            
         Returns:
             List of RoleRecommendation objects with target role as primary
         """
@@ -129,12 +122,10 @@ class HiredeskService(BasePromptService):
     ) -> List[Dict[str, str]]:
         """
         Generate interview questions tailored to the candidate and role.
-        
         Args:
             resume_data: Parsed resume data dictionary
             target_role: Optional target role for role-specific questions
             job_description: Optional job description for better questions
-            
         Returns:
             List of question dictionaries with type, question, and context
         """

@@ -1,5 +1,6 @@
 from typing import Dict, List, Any, Optional
 from app.models.schemas import Question
+from app.services.prompts.base_prompt_service import BasePromptService
 import os
 
 try:
@@ -9,22 +10,53 @@ except ImportError:
     genai = None
     GENAI_AVAILABLE = False
 
-class QuestionGenerator:
+
+class QuestionGenerator(BasePromptService):
+    """
+    Generate interview questions tailored to candidate resume and target roles.
+    Uses JSON mode for fast, direct JSON responses.
+    Inherits optimized formatting and parsing utilities from BasePromptService.
+    """
+    
     def __init__(self):
+        """Initialize question generator service."""
+        super().__init__()
         self.api_key = os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY environment variable is required")
-            
         if not GENAI_AVAILABLE or not genai:
             raise ImportError("google-generativeai package is not available")
-            
         genai.configure(api_key=self.api_key)
 
-    async def generate(self, resume_data: Dict[str, Any]) -> List[Question]:
-        """Generate interview questions based on resume data"""
-        model = genai.GenerativeModel('gemini-2.5-pro')
-        prompt = self._create_prompt(resume_data)
+    @property
+    def model(self):
+        """Get the generative AI model instance with JSON mode enabled."""
+        if self._model is None:
+            if not GENAI_AVAILABLE or not genai:
+                raise ImportError("google-generativeai package is not available")
+            try:
+                json_config = genai.types.GenerationConfig(
+                    response_mime_type="application/json"
+                )
+                self._model = genai.GenerativeModel(
+                    self.DEFAULT_MODEL,
+                    generation_config=json_config
+                )
+            except Exception:
+                self._model = genai.GenerativeModel(self.DEFAULT_MODEL)
+        return self._model
 
+    async def generate(self, resume_data: Dict[str, Any], **kwargs) -> List[Question]:
+        """
+        Generate general interview questions based on resume data.
+        Args:
+            resume_data: Parsed resume data dictionary
+            **kwargs: Additional arguments (not used)
+        Returns:
+            List of Question objects
+        """
+        model = self.model
+        prompt = self._create_prompt(resume_data)
         response = await model.generate_content_async(prompt)
 
         try:
@@ -41,11 +73,23 @@ class QuestionGenerator:
         except Exception as e:
             raise ValueError(f"Failed to generate questions: {str(e)}")
 
-    async def generate_for_role(self, resume_data: Dict[str, Any], target_role: str, job_description: Optional[str] = None) -> List[Question]:
-        """Generate role-specific interview questions based on resume data and target role"""
-        model = genai.GenerativeModel('gemini-2.5-flash')
+    async def generate_for_role(
+        self,
+        resume_data: Dict[str, Any],
+        target_role: str,
+        job_description: Optional[str] = None
+    ) -> List[Question]:
+        """
+        Generate role-specific interview questions.
+        Args:
+            resume_data: Parsed resume data dictionary
+            target_role: Target job role
+            job_description: Optional job description
+        Returns:
+            List of Question objects
+        """
+        model = self.model
         prompt = self._create_role_specific_prompt(resume_data, target_role, job_description)
-
         response = await model.generate_content_async(prompt)
 
         try:
@@ -54,7 +98,7 @@ class QuestionGenerator:
                 Question(
                     type=q["type"],
                     question=q["question"],
-                    context=q.get("context", f"Generated for {target_role} position based on resume analysis")
+                    context=q.get("context", f"Generated for {target_role} position")
                 )
                 for q in raw_questions
             ]
@@ -62,128 +106,115 @@ class QuestionGenerator:
         except Exception as e:
             raise ValueError(f"Failed to generate role-specific questions: {str(e)}")
 
+    # ========== PROMPT CREATION METHODS ==========
+
     def _create_prompt(self, resume_data: Dict[str, Any]) -> str:
-        """Create a detailed and specific prompt for question generation"""
-        skills = ", ".join(resume_data.get("skills", []))
-        experience = "\n".join([
-            f"- {exp.get('title', '')} at {exp.get('company', '')}"
-            for exp in resume_data.get("workExperience", [])
-        ])
-        education = "\n".join([
-            f"- {edu.get('degree', '')} from {edu.get('institution', '')}"
-            for edu in resume_data.get("education", [])
-        ])
+        """Create optimized structured prompt for general interview questions."""
+        skills = self.format_skills(resume_data.get("skills", []))
+        experience_summary = self.format_work_experience(resume_data.get("workExperience", []))
+        education_summary = self.format_education(resume_data.get("education", []))
+        highlights = self.format_highlights(resume_data.get("highlights", []))
 
-        return f"""
-You are an AI interviewer tasked with generating targeted and insightful interview questions tailored to a specific candidate's resume.
+        prompt = f"""ROLE: Expert Technical Interviewer.
 
-Below is the candidate’s profile:
+TASK: Generate 8-10 interview questions for this candidate.
 
-Skills:
-{skills}
-
-Experience:
-{experience}
-
-Education:
-{education}
-
-Instructions:
-1. Analyze the candidate’s resume deeply.
-2. Generate 15 unique and specific interview questions, divided equally among the following categories:
-
-   - Technical Skills (type: technical) — 5 questions based on the candidate's stated skills, tools, technologies, and any technical certifications or projects.
-   - Behavioral & Cultural Fit (type: behavioral) — 5 questions aimed at understanding the candidate’s mindset, soft skills, team collaboration, adaptability, conflict resolution, and company culture fit.
-   - Experience Validation (type: experience) — 5 questions derived directly from the candidate's work history, project outcomes, responsibilities, roles, achievements, or impact.
-
-3. Questions should be deep, resume-specific, and test real-world understanding or decision-making.
-
-Format each question as a JSON object with the following structure:
-{{
-  "type": "technical | behavioral | experience",
-  "question": "The actual question text",
-  "context": "Brief explanation of why this question is relevant based on specific parts of the resume"
-}}
-
-Return all questions as a JSON array.
-
-Ensure the questions are:
-- Diverse and non-repetitive
-- Specific to the resume content
-- Contextually grounded in the candidate's background
-        """
-
-    def _create_role_specific_prompt(self, resume_data: Dict[str, Any], target_role: str, job_description: Optional[str] = None) -> str:
-        """Create a role-specific prompt for question generation"""
-        skills = ", ".join(resume_data.get("skills", []))
-        experience = "\n".join([
-            f"- {exp.get('title', '')} at {exp.get('company', '')}"
-            for exp in resume_data.get("workExperience", [])
-        ])
-        
-        education = "\n".join([
-            f"- {edu.get('degree', '')} from {edu.get('institution', '')}"
-            for edu in resume_data.get("education", [])
-        ])
-
-        job_context = f"\n\nJob Description:\n{job_description}" if job_description else ""
-
-        return f"""
-You are an expert technical interviewer creating role-specific interview questions.
-
-Target Role: {target_role}
-{job_context}
-
-Candidate Profile:
+CANDIDATE_PROFILE:
 Skills: {skills}
+Work_Experience: {experience_summary}
+Education: {education_summary}
+Highlights: {highlights}
 
-Work Experience:
-{experience}
+INSTRUCTIONS:
+1. Generate 8-10 insightful questions targeting skills, experience, and knowledge gaps.
+2. Include mix of "technical", "behavioral", and "experience" types.
+3. context: 1-2 sentence explanation of WHY this question is asked.
+4. Questions must be specific to resume content and test real-world understanding.
 
-Education:
-{education}
+RESPONSE SCHEMA (MUST FOLLOW):
+You MUST output a valid JSON array with exactly this structure:
+[
+  {{
+    "type": "string (required: 'technical'|'behavioral'|'experience')",
+    "question": "string (required)",
+    "context": "string (required: 1-2 sentence reason)"
+  }}
+]
 
-Generate 15 targeted interview questions specifically for the {target_role} position that:
-1. Test if the candidate is suitable for this specific role
-2. Assess their technical skills relevant to {target_role}
-3. Evaluate their experience in contexts relevant to the position
-4. Probe areas where they might need improvement for this role
-5. Include behavioral questions relevant to the role requirements
+OUTPUT: Return ONLY the JSON array. No additional text before or after."""
+        return prompt
 
-Include a mix of:
-- 8 technical questions specifically about {target_role} responsibilities
-- 4 behavioral questions relevant to the role
-- 3 experience-based questions that test their background against role requirements
+    def _create_role_specific_prompt(
+        self,
+        resume_data: Dict[str, Any],
+        target_role: str,
+        job_description: Optional[str] = None
+    ) -> str:
+        """Create optimized structured prompt for role-specific interview questions."""
+        skills = self.format_skills(resume_data.get("skills", []))
+        experience_summary = self.format_work_experience(resume_data.get("workExperience", []))
+        education_summary = self.format_education(resume_data.get("education", []))
+        highlights = self.format_highlights(resume_data.get("highlights", []))
 
-Format each question as a JSON object with the following structure:
-{{
-  "type": "technical | behavioral | experience",
-  "question": "The actual question text",
-  "context": "Brief explanation of why this question is relevant for the {target_role} position"
-}}
+        job_section = f"Job_Description: {job_description[:300]}\n" if job_description else ""
 
-Return all questions as a JSON array.
+        prompt = f"""ROLE: Expert Technical Interviewer for {target_role}.
 
-Ensure the questions are:
-- Highly specific to the {target_role} position
-- Designed to assess role fit and competency
-- Progressive in difficulty to thoroughly evaluate the candidate
-        """
+TASK: Generate 8-10 role-specific interview questions.
 
-    def _parse_questions(self, text: str) -> List[Dict[str, str]]:
-        """Parse generated questions from the response text"""
-        import json
-        import re
+CANDIDATE_PROFILE:
+Skills: {skills}
+Work_Experience: {experience_summary}
+Education: {education_summary}
+Highlights: {highlights}
 
-        pattern = r'\[\s*{[\s\S]*?}\s*\]'
-        matches = re.search(pattern, text)
+{job_section}
+INSTRUCTIONS:
+1. Generate 8-10 questions specific to {target_role} position.
+2. Include role requirements, scenario-based, and fit assessment questions.
+3. Focus on how candidate skills translate to {target_role}.
+4. Include mix of "role-specific", "technical", "behavioral", "scenario-based".
+5. context: 1-2 sentence explanation of WHY this question matters for {target_role}.
 
-        if not matches:
-            raise ValueError("No valid question format found in response")
+RESPONSE SCHEMA (MUST FOLLOW):
+You MUST output a valid JSON array with exactly this structure:
+[
+  {{
+    "type": "string (required: 'role-specific'|'technical'|'behavioral'|'scenario-based')",
+    "question": "string (required)",
+    "context": "string (required: 1-2 sentence reason)"
+  }}
+]
 
-        try:
-            questions_json = matches.group()
-            questions = json.loads(questions_json)
-            return questions
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse questions JSON: {str(e)}")
+OUTPUT: Return ONLY the JSON array. No additional text before or after."""
+        return prompt
+
+    # ========== RESPONSE PARSING METHODS ==========
+
+    def _parse_questions(self, response_text: str) -> List[Dict[str, str]]:
+        """Parse interview questions from AI response with validation."""
+        questions = self.parse_json_array_response(response_text)
+        
+        # Validate structure
+        if not isinstance(questions, list):
+            raise ValueError(f"Response must be a JSON array, got {type(questions).__name__}")
+        
+        if len(questions) == 0:
+            raise ValueError("Response array is empty - no questions generated")
+        
+        validated_qs = []
+        for i, q in enumerate(questions):
+            if not isinstance(q, dict):
+                raise ValueError(f"Question {i} is not a JSON object: {type(q).__name__}")
+            
+            # Check required fields
+            if "type" not in q:
+                raise ValueError(f"Question {i} missing required field: type")
+            if "question" not in q:
+                raise ValueError(f"Question {i} missing required field: question")
+            if "context" not in q:
+                raise ValueError(f"Question {i} missing required field: context")
+            
+            validated_qs.append(q)
+        
+        return validated_qs
