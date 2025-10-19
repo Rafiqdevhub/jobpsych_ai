@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 
 class PersonalInfo(BaseModel):
     name: str
@@ -66,9 +66,10 @@ class CareerPathPrediction(BaseModel):
 
 
 class ResumeAnalysisResponse(BaseModel):
-    resumeData: ResumeData
+    resumeData: Optional[ResumeData] = None  # None for privacy-focused preparation system
     questions: List[Question]
     roleRecommendations: List[RoleRecommendation]
     resumeScore: Optional[ResumeScore] = None
     personalityInsights: Optional[PersonalityInsights] = None
     careerPath: Optional[CareerPathPrediction] = None
+    preparationPlan: Optional[Dict[str, Any]] = None  # Role-specific preparation guidance

@@ -47,6 +47,7 @@ async def analyze_resume(
         # Parse the resume
         parser = ResumeParser()
         resume_data = await parser.parse(file)
+        
         # Generate role recommendations with target role analysis
         analyze_service = AnalyzeResumeService()
         if target_role:
@@ -55,11 +56,32 @@ async def analyze_resume(
         else:
             # General role recommendations
             role_recommendations = await analyze_service.generate(resume_data)
-        # Create response with analysis results (no questions)
+        
+        # Calculate resume score, personality insights, and career path
+        resume_score = await analyze_service.calculate_resume_score(resume_data)
+        personality_insights = await analyze_service.analyze_personality(resume_data)
+        career_path = await analyze_service.predict_career_path(resume_data)
+        
+        # If target role provided, generate personalized preparation plan
+        preparation_plan = None
+        if target_role:
+            try:
+                preparation_plan = await analyze_service.generate_role_preparation_plan(
+                    resume_data, target_role, job_description
+                )
+            except Exception as e:
+                print(f"Warning: Could not generate preparation plan: {str(e)}")
+                # Don't fail the entire request if preparation plan fails
+                preparation_plan = None
+        
         response = ResumeAnalysisResponse(
-            resumeData=ResumeData(**resume_data),
+            resumeData=None,
             questions=[],
-            roleRecommendations=role_recommendations
+            roleRecommendations=role_recommendations,
+            resumeScore=resume_score,
+            personalityInsights=personality_insights,
+            careerPath=career_path,
+            preparationPlan=preparation_plan
         )
         return response
 
