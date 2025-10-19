@@ -14,14 +14,12 @@ except ImportError:
 class BatchAnalyzeService(BasePromptService):
     """
     Prompt service for /batch-analyze endpoint.
-    
     Handles:
     - Optimized prompts for batch processing of multiple resumes
     - Faster analysis without unnecessary details
     - Role recommendations for batch context
     - Maintains consistency with single resume analysis
     - Designed for efficiency in batch operations
-    
     Maintains same logic as existing batch analysis in router
     """
 
@@ -38,21 +36,30 @@ class BatchAnalyzeService(BasePromptService):
 
     @property
     def model(self):
-        """Get the generative AI model instance."""
+        """Get the generative AI model instance with JSON mode enabled."""
         if self._model is None:
             if not GENAI_AVAILABLE or not genai:
                 raise ImportError("google-generativeai package is not available")
-            self._model = genai.GenerativeModel(self.DEFAULT_MODEL)
+            # Force JSON output from the model
+            try:
+                json_config = genai.types.GenerationConfig(
+                    response_mime_type="application/json"
+                )
+                self._model = genai.GenerativeModel(
+                    self.DEFAULT_MODEL,
+                    generation_config=json_config
+                )
+            except Exception:
+                # Fallback if JSON mode is not available
+                self._model = genai.GenerativeModel(self.DEFAULT_MODEL)
         return self._model
 
     async def generate(self, resume_data: Dict[str, Any], **kwargs) -> List[RoleRecommendation]:
         """
         Generate general role recommendations for batch processing.
-        
         Args:
             resume_data: Parsed resume data dictionary
             **kwargs: Additional arguments (not used)
-            
         Returns:
             List of RoleRecommendation objects
         """
@@ -114,7 +121,7 @@ class BatchAnalyzeService(BasePromptService):
     def _create_role_prompt(self, resume_data: Dict[str, Any]) -> str:
         """
         Create an optimized prompt for batch role recommendation.
-        Concise but still accurate for batch context.
+        Ultra-concise format for fast batch processing.
         
         Args:
             resume_data: Parsed resume data dictionary
@@ -125,30 +132,46 @@ class BatchAnalyzeService(BasePromptService):
         skills = self.format_skills(resume_data.get("skills", []))
         experience_summary = self.format_work_experience(resume_data.get("workExperience", []))
         education_summary = self.format_education(resume_data.get("education", []))
-        personal_info = self.extract_personal_info(resume_data)
 
-        prompt = f"""
-Analyze this resume and recommend the top 5 most suitable job roles.
+        prompt = f"""ROLE: Expert Career Advisor & Technical Recruiter.
 
-CANDIDATE:
-Name: {personal_info['name']}
+TASK: Recommend 5 best-fit job roles for this candidate.
+
+CANDIDATE_PROFILE:
 Skills: {skills}
-Experience: {experience_summary}
+Work_Experience: {experience_summary}
 Education: {education_summary}
 
-Provide 5 role recommendations with match percentage, reasoning, required skills, and missing skills.
+INSTRUCTIONS:
+1. Generate top 5 most suitable roles.
+2. For matchPercentage use this rubric:
+   - 90-100: Perfect fit, all key skills match
+   - 75-89: Strong fit, most key skills match
+   - 60-74: Good fit, some skills match, some missing
+   - <60: Potential fit, significant skill gaps
+3. reasoning: MUST be 1-2 sentences maximum, direct and concise only
+4. requiredSkills: List 2-3 TOP skills candidate HAS (most relevant only)
+5. missingSkills: List 2-3 TOP skills candidate LACKS (most critical only)
 
-Return ONLY valid JSON array:
+RESPONSE SCHEMA (MUST FOLLOW):
+You MUST output a valid JSON array with exactly this structure. EVERY object MUST have roleName and matchPercentage:
 [
   {{
-    "roleName": "Role Title",
-    "matchPercentage": 85,
-    "reasoning": "Fit explanation",
-    "requiredSkills": ["Skill1", "Skill2"],
-    "missingSkills": ["Skill3"]
+    "roleName": "string (required)",
+    "matchPercentage": "number 0-100 (required)",
+    "reasoning": "string (required - max 2 sentences, concise)",
+    "requiredSkills": ["string"],
+    "missingSkills": ["string"]
   }}
 ]
-"""
+
+CONCISENESS RULES:
+- reasoning: Direct facts only, no fluff. Example: "5+ years in Python and Django. Needs cloud experience."
+- requiredSkills: Top 2-3 most relevant skills ONLY
+- missingSkills: Top 2-3 most critical missing skills ONLY
+- NO lengthy explanations or detailed descriptions
+
+OUTPUT: Return ONLY the JSON array. No additional text before or after."""
         return prompt
 
     def _create_role_fit_prompt(
@@ -159,6 +182,7 @@ Return ONLY valid JSON array:
     ) -> str:
         """
         Create an optimized prompt for batch role fit analysis.
+        Ultra-concise format for fast batch processing.
         
         Args:
             resume_data: Parsed resume data dictionary
@@ -171,52 +195,86 @@ Return ONLY valid JSON array:
         skills = self.format_skills(resume_data.get("skills", []))
         experience_summary = self.format_work_experience(resume_data.get("workExperience", []))
         education_summary = self.format_education(resume_data.get("education", []))
-        personal_info = self.extract_personal_info(resume_data)
 
-        job_desc_section = ""
-        if job_description:
-            job_desc_section = f"\n\nJOB DESCRIPTION:\n{job_description}\n"
+        job_section = f"Job_Description: {job_description[:300]}\n" if job_description else ""
 
-        prompt = f"""
-Analyze this candidate's fit for the target role.
+        prompt = f"""ROLE: Expert Recruiter & Career Analyst.
 
-CANDIDATE:
-Name: {personal_info['name']}
+TASK: Analyze candidate fit for {target_role}.
+
+CANDIDATE_PROFILE:
 Skills: {skills}
-Experience: {experience_summary}
+Work_Experience: {experience_summary}
 Education: {education_summary}
 
-TARGET ROLE: {target_role}{job_desc_section}
+{job_section}
+INSTRUCTIONS:
+1. Provide primary analysis for {target_role}.
+2. For matchPercentage use this rubric:
+   - 90-100: Perfect fit, all key skills match
+   - 75-89: Strong fit, most key skills match
+   - 60-74: Good fit, some skills match, some missing
+   - <60: Potential fit, significant skill gaps
+3. reasoning: MUST be 1-2 sentences maximum, direct and concise only
+4. requiredSkills: List 2-3 TOP skills candidate HAS (most relevant only)
+5. missingSkills: List 2-3 TOP skills candidate LACKS (most critical only)
 
-Analyze fit and provide match percentage, reasoning, required skills, and missing skills.
-
-Return ONLY valid JSON array:
+RESPONSE SCHEMA (MUST FOLLOW):
+You MUST output a valid JSON array with exactly this structure. EVERY object MUST have roleName and matchPercentage:
 [
   {{
-    "roleName": "{target_role}",
-    "matchPercentage": 85,
-    "reasoning": "Fit explanation",
-    "requiredSkills": ["Skill1"],
-    "missingSkills": ["Skill2"]
+    "roleName": "string (required)",
+    "matchPercentage": "number 0-100 (required)",
+    "reasoning": "string (required - max 2 sentences, concise)",
+    "requiredSkills": ["string"],
+    "missingSkills": ["string"]
   }}
 ]
-"""
+
+CONCISENESS RULES:
+- reasoning: Direct facts only, no fluff. Example: "Strong Python and Django skills. Needs AWS/cloud experience."
+- requiredSkills: Top 2-3 most relevant skills ONLY
+- missingSkills: Top 2-3 most critical missing skills ONLY
+- NO lengthy explanations or detailed descriptions
+
+OUTPUT: Return ONLY the JSON array. No additional text before or after."""
         return prompt
 
     # ========== RESPONSE PARSING METHODS ==========
 
     def _parse_recommendations(self, response_text: str) -> List[Dict[str, Any]]:
-        """Parse role recommendations from AI response."""
+        """Parse role recommendations from AI response with validation."""
         recommendations = self.parse_json_array_response(response_text)
         
         # Validate structure
         if not isinstance(recommendations, list):
-            raise ValueError("Response should be a JSON array of recommendations")
+            raise ValueError(f"Response must be a JSON array, got {type(recommendations).__name__}")
         
-        for rec in recommendations:
+        if len(recommendations) == 0:
+            raise ValueError("Response array is empty - no recommendations provided")
+        
+        validated_recs = []
+        for i, rec in enumerate(recommendations):
             if not isinstance(rec, dict):
-                raise ValueError("Each recommendation should be a JSON object")
-            if "roleName" not in rec or "matchPercentage" not in rec:
-                raise ValueError("Each recommendation must have roleName and matchPercentage")
+                raise ValueError(f"Recommendation {i} is not a JSON object: {type(rec).__name__}")
+            
+            # Check required fields
+            if "roleName" not in rec:
+                raise ValueError(f"Recommendation {i} missing required field: roleName")
+            if "matchPercentage" not in rec:
+                raise ValueError(f"Recommendation {i} missing required field: matchPercentage")
+            if "reasoning" not in rec:
+                raise ValueError(f"Recommendation {i} missing required field: reasoning")
+            
+            # Validate matchPercentage is a number
+            try:
+                match_pct = float(rec["matchPercentage"])
+                if not (0 <= match_pct <= 100):
+                    raise ValueError(f"matchPercentage {match_pct} not in range 0-100")
+                rec["matchPercentage"] = int(match_pct)
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Recommendation {i}: matchPercentage must be a number 0-100: {str(e)}")
+            
+            validated_recs.append(rec)
         
-        return recommendations
+        return validated_recs

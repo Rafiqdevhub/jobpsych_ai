@@ -39,11 +39,22 @@ class HiredeskService(BasePromptService):
 
     @property
     def model(self):
-        """Get the generative AI model instance."""
+        """Get the generative AI model instance with JSON mode enabled."""
         if self._model is None:
             if not GENAI_AVAILABLE or not genai:
                 raise ImportError("google-generativeai package is not available")
-            self._model = genai.GenerativeModel(self.DEFAULT_MODEL)
+            # Force JSON output from the model
+            try:
+                json_config = genai.types.GenerationConfig(
+                    response_mime_type="application/json"
+                )
+                self._model = genai.GenerativeModel(
+                    self.DEFAULT_MODEL,
+                    generation_config=json_config
+                )
+            except Exception:
+                # Fallback if JSON mode is not available
+                self._model = genai.GenerativeModel(self.DEFAULT_MODEL)
         return self._model
 
     async def generate(self, resume_data: Dict[str, Any], **kwargs) -> List[RoleRecommendation]:
@@ -147,49 +158,46 @@ class HiredeskService(BasePromptService):
     # ========== PROMPT CREATION METHODS ==========
 
     def _create_role_prompt(self, resume_data: Dict[str, Any]) -> str:
-        """Create a detailed prompt for general role recommendation."""
+        """Create optimized structured prompt for role recommendations."""
         skills = self.format_skills(resume_data.get("skills", []))
         experience_summary = self.format_work_experience(resume_data.get("workExperience", []))
         education_summary = self.format_education(resume_data.get("education", []))
         highlights = self.format_highlights(resume_data.get("highlights", []))
-        personal_info = self.extract_personal_info(resume_data)
 
-        prompt = f"""
-As an expert career advisor and recruitment specialist, analyze the following resume and recommend the top 5 most suitable job roles for this candidate.
+        prompt = f"""ROLE: Expert Career Advisor & Technical Recruiter.
 
-CANDIDATE PROFILE:
-Name: {personal_info['name']}
+TASK: Recommend 5 best-fit job roles for this candidate.
+
+CANDIDATE_PROFILE:
 Skills: {skills}
+Work_Experience: {experience_summary}
+Education: {education_summary}
+Highlights: {highlights}
 
-WORK EXPERIENCE:
-{experience_summary}
+INSTRUCTIONS:
+1. Generate top 5 most suitable roles.
+2. For matchPercentage use this rubric:
+   - 90-100: Perfect fit, all key skills match
+   - 75-89: Strong fit, most key skills match
+   - 60-74: Good fit, some skills match, some missing
+   - <60: Potential fit, significant skill gaps
+3. reasoning: 1-2 sentence justification only
+4. requiredSkills: Skills candidate HAS for this role
+5. missingSkills: Critical skills candidate LACKS
 
-EDUCATION:
-{education_summary}
-
-KEY HIGHLIGHTS:
-{highlights}
-
-Based on the candidate's profile, provide 5 role recommendations in JSON format.
-
-For each recommendation include:
-1. roleName: The recommended job title/role
-2. matchPercentage: Match percentage (0-100)
-3. reasoning: Detailed explanation of why this role fits
-4. requiredSkills: Array of skills required for this role that the candidate has
-5. missingSkills: Array of skills required for this role that the candidate lacks
-
-Return ONLY valid JSON array format:
+RESPONSE SCHEMA (MUST FOLLOW):
+You MUST output a valid JSON array with exactly this structure. EVERY object MUST have roleName and matchPercentage:
 [
   {{
-    "roleName": "Senior Developer",
-    "matchPercentage": 85,
-    "reasoning": "Strong technical background with 5+ years experience",
-    "requiredSkills": ["Python", "Django", "PostgreSQL"],
-    "missingSkills": ["Kubernetes", "AWS"]
+    "roleName": "string (required)",
+    "matchPercentage": "number 0-100 (required)",
+    "reasoning": "string (required)",
+    "requiredSkills": ["string"],
+    "missingSkills": ["string"]
   }}
 ]
-"""
+
+OUTPUT: Return ONLY the JSON array. No additional text before or after."""
         return prompt
 
     def _create_role_fit_prompt(
@@ -198,92 +206,83 @@ Return ONLY valid JSON array format:
         target_role: str,
         job_description: Optional[str] = None
     ) -> str:
-        """Create a detailed prompt for analyzing fit with target role."""
+        """Create optimized structured prompt for role fit analysis."""
         skills = self.format_skills(resume_data.get("skills", []))
         experience_summary = self.format_work_experience(resume_data.get("workExperience", []))
         education_summary = self.format_education(resume_data.get("education", []))
         highlights = self.format_highlights(resume_data.get("highlights", []))
-        personal_info = self.extract_personal_info(resume_data)
 
-        job_desc_section = ""
-        if job_description:
-            job_desc_section = f"\n\nJOB DESCRIPTION:\n{job_description}\n"
+        job_section = f"Job_Description: {job_description[:300]}\n" if job_description else ""
 
-        prompt = f"""
-As an expert recruiter and career analyst, analyze the fit between this candidate and the target role.
+        prompt = f"""ROLE: Expert Recruiter & Career Analyst.
 
-CANDIDATE PROFILE:
-Name: {personal_info['name']}
+TASK: Analyze candidate fit for {target_role}.
+
+CANDIDATE_PROFILE:
 Skills: {skills}
+Work_Experience: {experience_summary}
+Education: {education_summary}
+Highlights: {highlights}
 
-WORK EXPERIENCE:
-{experience_summary}
+{job_section}
+INSTRUCTIONS:
+1. Provide primary analysis for {target_role}.
+2. For matchPercentage use this rubric:
+   - 90-100: Perfect fit, all key skills match
+   - 75-89: Strong fit, most key skills match
+   - 60-74: Good fit, some skills match, some missing
+   - <60: Potential fit, significant skill gaps
+3. reasoning: 1-2 sentence justification only
+4. requiredSkills: Skills candidate HAS for this role
+5. missingSkills: Critical skills candidate LACKS
 
-EDUCATION:
-{education_summary}
-
-KEY HIGHLIGHTS:
-{highlights}
-
-TARGET ROLE: {target_role}{job_desc_section}
-
-Analyze the candidate's fit for the target role and provide:
-1. Primary fit analysis for the target role
-2. Provide assessment of how well the candidate fits this specific role
-
-Return ONLY valid JSON array format with target role as primary:
+RESPONSE SCHEMA (MUST FOLLOW):
+You MUST output a valid JSON array with exactly this structure. EVERY object MUST have roleName and matchPercentage:
 [
   {{
-    "roleName": "{target_role}",
-    "matchPercentage": 85,
-    "reasoning": "Clear fit for this role based on experience and skills",
-    "requiredSkills": ["Skill1", "Skill2"],
-    "missingSkills": ["Skill3"]
+    "roleName": "string (required)",
+    "matchPercentage": "number 0-100 (required)",
+    "reasoning": "string (required)",
+    "requiredSkills": ["string"],
+    "missingSkills": ["string"]
   }}
 ]
-"""
+
+OUTPUT: Return ONLY the JSON array. No additional text before or after."""
         return prompt
 
     def _create_general_questions_prompt(self, resume_data: Dict[str, Any]) -> str:
-        """Create a prompt for generating general interview questions based on resume."""
+        """Create optimized structured prompt for general interview questions."""
         skills = self.format_skills(resume_data.get("skills", []))
         experience_summary = self.format_work_experience(resume_data.get("workExperience", []))
         education_summary = self.format_education(resume_data.get("education", []))
-        personal_info = self.extract_personal_info(resume_data)
 
-        prompt = f"""
-You are an experienced AI interviewer tasked with generating targeted and insightful interview questions tailored to a specific candidate's resume.
+        prompt = f"""ROLE: Senior AI Hiring Manager.
 
-CANDIDATE PROFILE:
-Name: {personal_info['name']}
+TASK: Generate 8-10 insightful interview questions for this candidate.
+
+CANDIDATE_PROFILE:
 Skills: {skills}
+Work_Experience: {experience_summary}
+Education: {education_summary}
 
-WORK EXPERIENCE:
-{experience_summary}
+INSTRUCTIONS:
+1. Generate 8-10 questions probing skills, experience, and gaps.
+2. Include mix of "technical", "behavioral", and "problem-solving" types.
+3. context: 1-sentence explanation of WHY this question is asked.
+4. Questions must target specific skills or experiences from resume.
 
-EDUCATION:
-{education_summary}
-
-Generate 8-10 general interview questions that would be appropriate for this candidate based on their background, skills, and experience. Include a mix of:
-- Technical/role-specific questions
-- Behavioral questions
-- Problem-solving questions
-- Questions about their experience gaps or areas for growth
-
-For each question, provide:
-1. type: The question type (e.g., "behavioral", "technical", "motivational", "problem-solving")
-2. question: The actual interview question
-3. context: Brief context explaining why this question is asked
-
-Return ONLY valid JSON array format:
+RESPONSE SCHEMA (MUST FOLLOW):
+You MUST output a valid JSON array with exactly this structure:
 [
   {{
-    "type": "behavioral",
-    "question": "Tell me about a challenging project you led and how you overcame obstacles.",
-    "context": "Based on their team leadership experience"
+    "type": "string (required: 'technical'|'behavioral'|'problem-solving')",
+    "question": "string (required)",
+    "context": "string (required: 1-2 sentence reason for asking)"
   }}
 ]
-"""
+
+OUTPUT: Return ONLY the JSON array. No additional text before or after."""
         return prompt
 
     def _create_role_specific_questions_prompt(
@@ -292,83 +291,106 @@ Return ONLY valid JSON array format:
         target_role: str,
         job_description: Optional[str] = None
     ) -> str:
-        """Create a prompt for generating role-specific interview questions."""
+        """Create optimized structured prompt for role-specific questions."""
         skills = self.format_skills(resume_data.get("skills", []))
         experience_summary = self.format_work_experience(resume_data.get("workExperience", []))
         education_summary = self.format_education(resume_data.get("education", []))
-        personal_info = self.extract_personal_info(resume_data)
 
-        job_desc_section = ""
-        if job_description:
-            job_desc_section = f"\n\nJOB DESCRIPTION:\n{job_description}\n"
+        job_section = f"Job_Description: {job_description[:300]}\n" if job_description else ""
 
-        prompt = f"""
-You are an experienced AI interviewer tasked with generating targeted interview questions for a specific role.
+        prompt = f"""ROLE: Expert Technical Interviewer for {target_role}.
 
-CANDIDATE PROFILE:
-Name: {personal_info['name']}
+TASK: Generate 8-10 role-specific interview questions.
+
+CANDIDATE_PROFILE:
 Skills: {skills}
+Work_Experience: {experience_summary}
+Education: {education_summary}
 
-WORK EXPERIENCE:
-{experience_summary}
+{job_section}
+INSTRUCTIONS:
+1. Generate 8-10 questions specific to {target_role} position.
+2. Include role requirements, scenario-based, fit assessment questions.
+3. Focus on how candidate skills translate to {target_role}.
+4. Include mix of "role-specific", "technical", "behavioral", "scenario-based".
+5. context: 1-sentence explanation of WHY this question matters for {target_role}.
 
-EDUCATION:
-{education_summary}
-
-TARGET ROLE: {target_role}{job_desc_section}
-
-Generate 8-10 role-specific interview questions tailored to the {target_role} position and this candidate's background. Include:
-- Questions specific to the {target_role} role requirements
-- Scenario-based questions for this specific role
-- Questions addressing the candidate's fit for this particular position
-- Questions about how their skills translate to this role
-
-For each question, provide:
-1. type: The question type (e.g., "role-specific", "behavioral", "technical", "scenario-based")
-2. question: The actual interview question
-3. context: Brief context explaining why this question is asked for this role
-
-Return ONLY valid JSON array format:
+RESPONSE SCHEMA (MUST FOLLOW):
+You MUST output a valid JSON array with exactly this structure:
 [
   {{
-    "type": "role-specific",
-    "question": "How would you approach architecting a microservices system for this role?",
-    "context": "Core responsibility for {target_role} position"
+    "type": "string (required: 'role-specific'|'technical'|'behavioral'|'scenario-based')",
+    "question": "string (required)",
+    "context": "string (required: 1-2 sentence reason for asking)"
   }}
 ]
-"""
+
+OUTPUT: Return ONLY the JSON array. No additional text before or after."""
         return prompt
 
     # ========== RESPONSE PARSING METHODS ==========
 
     def _parse_recommendations(self, response_text: str) -> List[Dict[str, Any]]:
-        """Parse role recommendations from AI response."""
+        """Parse role recommendations from AI response with validation."""
         recommendations = self.parse_json_array_response(response_text)
         
         # Validate structure
         if not isinstance(recommendations, list):
-            raise ValueError("Response should be a JSON array of recommendations")
+            raise ValueError(f"Response must be a JSON array, got {type(recommendations).__name__}")
         
-        for rec in recommendations:
+        if len(recommendations) == 0:
+            raise ValueError("Response array is empty - no recommendations provided")
+        
+        validated_recs = []
+        for i, rec in enumerate(recommendations):
             if not isinstance(rec, dict):
-                raise ValueError("Each recommendation should be a JSON object")
-            if "roleName" not in rec or "matchPercentage" not in rec:
-                raise ValueError("Each recommendation must have roleName and matchPercentage")
+                raise ValueError(f"Recommendation {i} is not a JSON object: {type(rec).__name__}")
+            
+            # Check required fields
+            if "roleName" not in rec:
+                raise ValueError(f"Recommendation {i} missing required field: roleName")
+            if "matchPercentage" not in rec:
+                raise ValueError(f"Recommendation {i} missing required field: matchPercentage")
+            if "reasoning" not in rec:
+                raise ValueError(f"Recommendation {i} missing required field: reasoning")
+            
+            # Validate matchPercentage is a number
+            try:
+                match_pct = float(rec["matchPercentage"])
+                if not (0 <= match_pct <= 100):
+                    raise ValueError(f"matchPercentage {match_pct} not in range 0-100")
+                rec["matchPercentage"] = int(match_pct)
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Recommendation {i}: matchPercentage must be a number 0-100: {str(e)}")
+            
+            validated_recs.append(rec)
         
-        return recommendations
+        return validated_recs
 
     def _parse_questions(self, response_text: str) -> List[Dict[str, str]]:
-        """Parse interview questions from AI response."""
+        """Parse interview questions from AI response with validation."""
         questions = self.parse_json_array_response(response_text)
         
         # Validate structure
         if not isinstance(questions, list):
-            raise ValueError("Response should be a JSON array of questions")
+            raise ValueError(f"Response must be a JSON array, got {type(questions).__name__}")
         
-        for q in questions:
+        if len(questions) == 0:
+            raise ValueError("Response array is empty - no questions generated")
+        
+        validated_qs = []
+        for i, q in enumerate(questions):
             if not isinstance(q, dict):
-                raise ValueError("Each question should be a JSON object")
-            if "type" not in q or "question" not in q:
-                raise ValueError("Each question must have type and question fields")
+                raise ValueError(f"Question {i} is not a JSON object: {type(q).__name__}")
+            
+            # Check required fields
+            if "type" not in q:
+                raise ValueError(f"Question {i} missing required field: type")
+            if "question" not in q:
+                raise ValueError(f"Question {i} missing required field: question")
+            if "context" not in q:
+                raise ValueError(f"Question {i} missing required field: context")
+            
+            validated_qs.append(q)
         
-        return questions
+        return validated_qs

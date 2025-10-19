@@ -1,6 +1,7 @@
 from typing import Dict, List, Any, Optional
 import os
 from app.models.schemas import ResumeScore, PersonalityInsights, CareerPathPrediction
+from app.services.prompts.base_prompt_service import BasePromptService
 
 try:
     import google.generativeai as genai
@@ -9,8 +10,9 @@ except ImportError:
     genai = None
     GENAI_AVAILABLE = False
 
-class AdvancedAnalyzer:
+class AdvancedAnalyzer(BasePromptService):
     def __init__(self):
+        super().__init__()
         self.api_key = os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY environment variable is required")
@@ -19,24 +21,25 @@ class AdvancedAnalyzer:
             raise ImportError("google-generativeai package is not available")
 
         genai.configure(api_key=self.api_key)
-        self._model = None
 
-    @property
-    def model(self):
-        """Get the generative AI model instance."""
-        if self._model is None:
-            if not GENAI_AVAILABLE or not genai:
-                raise ImportError("google-generativeai package is not available")
-            self._model = genai.GenerativeModel('gemini-2.5-flash')
-        return self._model
+    async def generate(self, resume_data: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+        """Generate comprehensive analysis including score, personality, and career path."""
+        return {
+            "score": await self.calculate_resume_score(resume_data),
+            "personality": await self.analyze_personality(resume_data),
+            "career_path": await self.predict_career_path(resume_data)
+        }
 
     async def calculate_resume_score(self, resume_data: Dict[str, Any]) -> ResumeScore:
         """Calculate comprehensive resume score with detailed breakdown"""
-        model = self.model
-        prompt = self._create_scoring_prompt(resume_data)
-        response = await model.generate_content_async(prompt)
-
         try:
+            model = self.model
+            prompt = self._create_scoring_prompt(resume_data)
+            response = await model.generate_content_async(prompt)
+            
+            if not response or not response.text:
+                raise ValueError("Empty response from AI model")
+
             score_data = self._parse_score_response(response.text)
             return ResumeScore(**score_data)
         except Exception as e:
@@ -44,11 +47,14 @@ class AdvancedAnalyzer:
 
     async def analyze_personality(self, resume_data: Dict[str, Any]) -> PersonalityInsights:
         """Analyze personality traits from resume content"""
-        model = self.model
-        prompt = self._create_personality_prompt(resume_data)
-        response = await model.generate_content_async(prompt)
-
         try:
+            model = self.model
+            prompt = self._create_personality_prompt(resume_data)
+            response = await model.generate_content_async(prompt)
+            
+            if not response or not response.text:
+                raise ValueError("Empty response from AI model")
+
             personality_data = self._parse_personality_response(response.text)
             return PersonalityInsights(**personality_data)
         except Exception as e:
@@ -56,106 +62,105 @@ class AdvancedAnalyzer:
 
     async def predict_career_path(self, resume_data: Dict[str, Any]) -> CareerPathPrediction:
         """Predict career progression and next steps"""
-        model = self.model
-        prompt = self._create_career_prompt(resume_data)
-        response = await model.generate_content_async(prompt)
-
         try:
+            model = self.model
+            prompt = self._create_career_prompt(resume_data)
+            response = await model.generate_content_async(prompt)
+            
+            if not response or not response.text:
+                raise ValueError("Empty response from AI model")
+
             career_data = self._parse_career_response(response.text)
             return CareerPathPrediction(**career_data)
         except Exception as e:
             raise ValueError(f"Failed to predict career path: {str(e)}")
 
     def _create_scoring_prompt(self, resume_data: Dict[str, Any]) -> str:
-        skills = ", ".join(resume_data.get("skills", []))
-        experience = "\n".join([
-            f"- {exp.get('title', '')} at {exp.get('company', '')} ({exp.get('duration', '')})"
-            for exp in resume_data.get("workExperience", [])
-        ])
-        education = "\n".join([
-            f"- {edu.get('degree', '')} from {edu.get('institution', '')}"
-            for edu in resume_data.get("education", [])
-        ])
+        formatted_experience = self.format_work_experience(resume_data.get("workExperience", []))
+        formatted_education = self.format_education(resume_data.get("education", []))
+        formatted_skills = self.format_skills(resume_data.get("skills", []))
 
         return f"""
-You are an expert HR analyst and resume evaluator. Analyze this resume and provide a comprehensive scoring breakdown.
+ROLE: Expert Resume Evaluator
+TASK: Score resume across 5 dimensions with concise assessment
+INSTRUCTIONS: Reasoning MUST be 1-2 sentences max. Strengths/weaknesses top 3 only. Be direct and concise.
 
 CANDIDATE RESUME:
-Skills: {skills}
-Experience: {experience}
-Education: {education}
+Skills: {formatted_skills}
+Experience: {formatted_experience}
+Education: {formatted_education}
 
-Calculate scores (0-100) for:
-- Technical Skills: Based on relevance, depth, and currency of technical skills
-- Experience: Quality and relevance of work experience, career progression
-- Education: Relevance of education to career goals, academic achievements
-- Communication: Clarity of resume writing, presentation skills evident
+SCORING RUBRIC:
+- Technical Skills (0-100): Relevance, depth, and currency
+- Experience (0-100): Quality, relevance, career progression
+- Education (0-100): Relevance to goals, academic achievements
+- Communication (0-100): Clarity of writing, presentation
+- Overall Score: Weighted (Tech 30%, Exp 35%, Edu 20%, Comm 15%)
 
-Overall Score: Weighted average (Technical 30%, Experience 35%, Education 20%, Communication 15%)
-
-Provide detailed reasoning and specific suggestions for improvement.
-
-Return in JSON format:
+RESPONSE_SCHEMA:
 {{
-  "overall_score": 85.5,
-  "technical_score": 88.2,
-  "experience_score": 82.7,
-  "education_score": 90.1,
-  "communication_score": 78.4,
-  "reasoning": "Detailed explanation of scoring methodology and overall assessment",
-  "strengths": ["Strength 1", "Strength 2", "Strength 3"],
-  "weaknesses": ["Weakness 1", "Weakness 2"],
-  "improvement_suggestions": ["Suggestion 1", "Suggestion 2", "Suggestion 3"]
+  "overall_score": <float>,
+  "technical_score": <float>,
+  "experience_score": <float>,
+  "education_score": <float>,
+  "communication_score": <float>,
+  "reasoning": "<1-2 sentences max: key assessment>",
+  "strengths": ["<top strength>", "<second>", "<third>"],
+  "weaknesses": ["<top weakness>", "<second>", "<third>"],
+  "improvement_suggestions": ["<actionable step 1>", "<step 2>", "<step 3>"]
 }}
+
+OUTPUT: Return ONLY valid JSON. Concise only.
 """
 
     def _create_personality_prompt(self, resume_data: Dict[str, Any]) -> str:
         # Extract text content for personality analysis
-        highlights = " ".join(resume_data.get("highlights", []))
-        experience_desc = " ".join([
-            " ".join(exp.get("description", []))
-            for exp in resume_data.get("workExperience", [])
-        ])
-
-        content = f"{highlights} {experience_desc}"
+        formatted_experience = self.format_work_experience(resume_data.get("workExperience", []))
+        formatted_education = self.format_education(resume_data.get("education", []))
+        formatted_skills = self.format_skills(resume_data.get("skills", []))
 
         return f"""
-Analyze the following resume content and infer personality traits and work style preferences.
+ROLE: Personality and Work Style Analyst
+TASK: Infer personality traits and work preferences from resume
+INSTRUCTIONS: Use resume indicators (achievements, roles, skills) to score traits. Analysis MUST be 2-3 sentences max.
 
-RESUME CONTENT: {content}
+RESUME SUMMARY:
+Experience: {formatted_experience}
+Education: {formatted_education}
+Skills: {formatted_skills}
 
-Assess these personality dimensions (0-100 scale):
-- Extraversion: Outgoing vs reserved
-- Conscientiousness: Organized vs spontaneous
-- Openness: Curious vs practical
-- Agreeableness: Cooperative vs competitive
-- Emotional Stability: Calm vs anxious
+PERSONALITY DIMENSIONS (0-100 scale):
+- Extraversion: Social orientation, outgoing vs reserved
+- Conscientiousness: Organization, discipline, reliability
+- Openness: Curiosity, innovation, comfort with change
+- Agreeableness: Cooperation, empathy, teamwork
+- Emotional Stability: Resilience, calm under pressure
 
-Also determine:
+WORK PREFERENCES:
 - Work Style: "Independent", "Collaborative", "Leadership", "Analytical", "Creative"
-- Leadership Potential (0-100)
-- Team Player Score (0-100)
+- Leadership Potential: 0-100 based on track record
+- Team Player Score: 0-100 based on collaboration indicators
 
-Provide analysis explaining how you derived these insights from the resume content.
-
-Return in JSON format:
+RESPONSE_SCHEMA:
 {{
   "traits": {{
-    "extraversion": 75.3,
-    "conscientiousness": 82.1,
-    "openness": 68.7,
-    "agreeableness": 79.4,
-    "emotional_stability": 71.2
+    "extraversion": <0-100>,
+    "conscientiousness": <0-100>,
+    "openness": <0-100>,
+    "agreeableness": <0-100>,
+    "emotional_stability": <0-100>
   }},
-  "work_style": "Collaborative",
-  "leadership_potential": 78.5,
-  "team_player_score": 85.2,
-  "analysis": "Detailed explanation of personality assessment based on resume content"
+  "work_style": "<one of the 5 options>",
+  "leadership_potential": <0-100>,
+  "team_player_score": <0-100>,
+  "analysis": "<2-3 sentences: key personality insights derived from resume>"
 }}
+
+OUTPUT: Return ONLY valid JSON. Be concise and direct.
 """
 
     def _create_career_prompt(self, resume_data: Dict[str, Any]) -> str:
-        skills = ", ".join(resume_data.get("skills", []))
+        formatted_skills = self.format_skills(resume_data.get("skills", []))
         experience = resume_data.get("workExperience", [])
         education = resume_data.get("education", [])
 
@@ -163,59 +168,41 @@ Return in JSON format:
         years_exp = len(experience) * 2  # Rough estimate
 
         return f"""
-You are a career development expert. Based on this candidate's background, predict their career progression.
+ROLE: Career Development Expert
+TASK: Predict career progression and next opportunities
+INSTRUCTIONS: Identify current level, top 3 next roles, timeline, and key skill gaps. Be direct and actionable.
 
-CURRENT PROFILE:
-Skills: {skills}
-Current Role Level: {current_role}
+CANDIDATE PROFILE:
+Skills: {formatted_skills}
+Current Role: {current_role}
 Years of Experience: Approximately {years_exp}
-Education: {[edu.get('degree', '') for edu in education]}
+Education: {self.format_education(education)}
 
-Predict:
-1. Current career level: "Entry Level", "Mid Level", "Senior Level", "Executive"
-2. Next 3 potential career roles they could progress to
-3. Timeline for advancement (1-3 years, 3-5 years, etc.)
-4. Key skills/developments needed for next level
+ANALYSIS REQUIREMENTS:
+1. Current career level: "Entry Level", "Mid Level", "Senior Level", or "Executive"
+2. Next 3 potential roles (top opportunity first)
+3. Advancement timeline based on skill/experience gaps
+4. Key skill developments needed for progression
 
-
-Consider industry trends, skill requirements, and typical career paths.
-
-Return in JSON format:
+RESPONSE_SCHEMA:
 {{
-  "current_level": "Mid Level",
-  "next_roles": ["Senior Developer", "Tech Lead", "Engineering Manager"],
-  "timeline": "2-4 years for next advancement",
-  "required_development": ["Leadership skills", "Advanced technical expertise", "Project management"],
- 
+  "current_level": "<one of the 4 levels>",
+  "next_roles": ["<top opportunity>", "<second option>", "<third option>"],
+  "timeline": "<e.g., '2-3 years' for next advancement>",
+  "required_development": ["<skill gap 1>", "<skill gap 2>", "<skill gap 3>"]
 }}
+
+OUTPUT: Return ONLY valid JSON. Be specific and actionable.
 """
 
     def _parse_score_response(self, text: str) -> Dict[str, Any]:
-        import json
-        import re
-
-        json_match = re.search(r'\{.*\}', text, re.DOTALL)
-        if not json_match:
-            raise ValueError("No JSON found in score response")
-
-        return json.loads(json_match.group())
+        """Parse resume score response using base class JSON parsing."""
+        return self.parse_json_response(text)
 
     def _parse_personality_response(self, text: str) -> Dict[str, Any]:
-        import json
-        import re
-
-        json_match = re.search(r'\{.*\}', text, re.DOTALL)
-        if not json_match:
-            raise ValueError("No JSON found in personality response")
-
-        return json.loads(json_match.group())
+        """Parse personality response using base class JSON parsing."""
+        return self.parse_json_response(text)
 
     def _parse_career_response(self, text: str) -> Dict[str, Any]:
-        import json
-        import re
-
-        json_match = re.search(r'\{.*\}', text, re.DOTALL)
-        if not json_match:
-            raise ValueError("No JSON found in career response")
-
-        return json.loads(json_match.group())
+        """Parse career response using base class JSON parsing."""
+        return self.parse_json_response(text)

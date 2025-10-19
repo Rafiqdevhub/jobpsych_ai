@@ -415,20 +415,27 @@ async def batch_analyze_resumes(
 
             except Exception as e:
                 error_message = str(e)
+                print(f"DEBUG: Exception in batch_analyze for {file.filename}: {type(e).__name__}: {error_message}")
+                import traceback
+                traceback.print_exc()
+                
+                # Preserve detailed error for API response (helps with debugging)
+                detailed_error = error_message
+                
                 if "PDF" in error_message:
-                    error_message = "Error reading PDF file. Please ensure it's not corrupted."
+                    display_error = "Error reading PDF file. Please ensure it's not corrupted."
                 elif "DOCX" in error_message:
-                    error_message = "Error reading DOCX file. Please ensure it's a valid document."
+                    display_error = "Error reading DOCX file. Please ensure it's a valid document."
                 else:
-                    error_message = "Analysis failed. Please try again."
+                    display_error = detailed_error if "Failed to" in detailed_error else "Analysis failed. Please try again."
 
                 results.append({
                     "file_name": file.filename,
                     "status": "error",
                     "data": None,
-                    "error": error_message
+                    "error": display_error
                 })
-                failed_files.append((file.filename, error_message))
+                failed_files.append((file.filename, display_error))
 
         # ========== STEP 4: TRACK UPLOADS ==========
         successful_count = len(successful_files)
