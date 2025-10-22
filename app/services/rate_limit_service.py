@@ -75,11 +75,9 @@ class RateLimitService:
         """
         Increment filesUploaded counter for hiredesk_analyze
         Used for single file uploads via hiredesk_analyze endpoint
-        
         Args:
             email: User email
             count: Number of files to increment (default 1)
-        
         Returns: True if successful, False otherwise
         """
         normalized_email = email.lower().strip()

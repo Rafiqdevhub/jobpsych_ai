@@ -14,14 +14,12 @@ except ImportError:
 class CompareResumesService(BasePromptService):
     """
     Prompt service for /compare-resumes endpoint.
-    
     Handles:
     - Comparative analysis prompts for multiple resumes
     - Ranking and scoring logic for resume comparison
     - Identification of strengths and weaknesses for each candidate
     - Comparative insights across all candidates
     - Designed for fast and efficient resume comparison
-    
     Maintains same logic as existing compare resumes in router
     """
 
@@ -33,27 +31,36 @@ class CompareResumesService(BasePromptService):
             raise ValueError("GOOGLE_API_KEY environment variable is required")
         if not GENAI_AVAILABLE or not genai:
             raise ImportError("google-generativeai package is not available")
-        genai.configure(api_key=self.api_key)
+        genai.configure(api_key=self.api_key)  # type: ignore[attr-defined]
         self._model = None
 
     @property
     def model(self):
-        """Get the generative AI model instance."""
+        """Get the generative AI model instance with JSON mode enabled."""
         if self._model is None:
             if not GENAI_AVAILABLE or not genai:
                 raise ImportError("google-generativeai package is not available")
-            self._model = genai.GenerativeModel(self.DEFAULT_MODEL)
+            # Force JSON output from the model
+            try:
+                json_config = genai.types.GenerationConfig(  # type: ignore[attr-defined]
+                    response_mime_type="application/json"
+                )
+                self._model = genai.GenerativeModel(  # type: ignore[attr-defined]
+                    self.DEFAULT_MODEL,
+                    generation_config=json_config
+                )
+            except Exception:
+                # Fallback if JSON mode is not available
+                self._model = genai.GenerativeModel(self.DEFAULT_MODEL)  # type: ignore[attr-defined]
         return self._model
 
     async def generate(self, resume_data: Dict[str, Any], **kwargs) -> List[RoleRecommendation]:
         """
         Generate role recommendations for comparison context.
-        Not typically used in compare-resumes flow.
-        
+        Not typically used in compare-resumes flow.   
         Args:
             resume_data: Parsed resume data dictionary
-            **kwargs: Additional arguments
-            
+            **kwargs: Additional arguments 
         Returns:
             List of RoleRecommendation objects
         """
@@ -82,11 +89,9 @@ class CompareResumesService(BasePromptService):
     ) -> Dict[str, Any]:
         """
         Generate comparative analysis across multiple resumes.
-        
         Args:
             resumes_data: List of parsed resume data dictionaries
             target_role: Optional target role for comparison context
-            
         Returns:
             Dictionary containing comparative analysis and insights
         """
@@ -107,11 +112,9 @@ class CompareResumesService(BasePromptService):
     ) -> Dict[str, Any]:
         """
         Generate detailed pairwise comparison of resumes with strengths/weaknesses.
-        
         Args:
             resumes_data: List of parsed resume data dictionaries
-            target_role: Optional target role for comparison context
-            
+            target_role: Optional target role for comparison context   
         Returns:
             Dictionary containing detailed comparison insights
         """
@@ -129,33 +132,25 @@ class CompareResumesService(BasePromptService):
 
     def _create_role_prompt(self, resume_data: Dict[str, Any]) -> str:
         """Create a prompt for single resume role recommendation."""
-        skills = self.format_skills(resume_data.get("skills", []))
-        experience_summary = self.format_work_experience(resume_data.get("workExperience", []))
-        education_summary = self.format_education(resume_data.get("education", []))
-        personal_info = self.extract_personal_info(resume_data)
+        profile_block = self.render_candidate_profile(
+            resume_data,
+            include_personal_info=True,
+            include_highlights=False
+        )
 
-        prompt = f"""
-Analyze this resume and recommend the top 3 most suitable job roles.
-
-CANDIDATE:
-Name: {personal_info['name']}
-Skills: {skills}
-Experience: {experience_summary}
-Education: {education_summary}
-
-Provide 3 role recommendations with match percentage, reasoning, required skills, and missing skills.
-
-Return ONLY valid JSON array:
-[
-  {{
-    "roleName": "Role Title",
-    "matchPercentage": 85,
-    "reasoning": "Fit explanation",
-    "requiredSkills": ["Skill1"],
-    "missingSkills": ["Skill2"]
-  }}
-]
-"""
+        prompt = (
+            "ROLE: Expert Career Advisor & Technical Recruiter.\n"
+            "TASK: Produce JSON array of exactly 3 best-fit roles sorted by matchPercentage (integer 0-100).\n"
+            f"{self.MATCH_RUBRIC}\n\n"
+            "OUTPUT FIELDS:\n"
+            "- roleName\n"
+            "- matchPercentage (int 0-100)\n"
+            "- reasoning (<=2 direct sentences)\n"
+            "- requiredSkills (top 2-3 relevant skills)\n"
+            "- missingSkills (top 2-3 critical gaps)\n\n"
+            f"CANDIDATE PROFILE:\n{profile_block}\n\n"
+            "RETURN: JSON array only."
+        )
         return prompt
 
     def _create_comparison_prompt(
@@ -165,47 +160,31 @@ Return ONLY valid JSON array:
     ) -> str:
         """
         Create a prompt for high-level comparison of resumes.
-        
+        Concise format for fast comparison with JSON mode.
         Args:
             resumes_data: List of resume data dictionaries
             target_role: Optional target role for comparison context
-            
         Returns:
             Formatted prompt string
         """
         candidates_section = self._format_candidates_section(resumes_data)
         target_section = ""
         if target_role:
-            target_section = f"\nTARGET ROLE: {target_role}\n"
+            target_section = f"\nTARGET ROLE: {target_role}"
 
-        prompt = f"""
-Compare these candidates and provide high-level insights.
-
-{candidates_section}{target_section}
-
-For comparison, provide:
-1. Overall assessment: Brief summary of how these candidates compare
-2. Key differentiators: What sets each candidate apart
-3. Top performer: Which candidate stands out and why
-4. Relative strengths: Key strengths of each candidate relative to others
-5. Recommendations: Which candidates to prioritize for interviews
-
-Return ONLY valid JSON object:
-{{
-  "overall_assessment": "Summary of comparison",
-  "top_performer": "Candidate name",
-  "top_performer_reason": "Why this candidate stands out",
-  "key_differentiators": {{
-    "Candidate1": "Key differentiator",
-    "Candidate2": "Key differentiator"
-  }},
-  "relative_strengths": {{
-    "Candidate1": ["Strength1", "Strength2"],
-    "Candidate2": ["Strength1", "Strength2"]
-  }},
-  "recommendations": "Interview recommendations"
-}}
-"""
+        prompt = (
+            "ROLE: Expert Recruiter & Comparative Analyst.\n"
+            "TASK: Compare candidates and return JSON object with high-level insights.\n\n"
+            f"{candidates_section}\n{target_section}\n\n"
+            "OUTPUT FIELDS:\n"
+            "- overall_assessment: Brief 1-2 sentence summary\n"
+            "- top_performer: Name of best candidate\n"
+            "- top_performer_reason: Why they stand out (1-2 sentences)\n"
+            "- key_differentiators: Object with candidate names as keys, differentiators as values\n"
+            "- relative_strengths: Object with candidate names as keys, strength arrays as values (top 2-3)\n"
+            "- recommendations: Interview recommendations (1-2 sentences)\n\n"
+            "RETURN: JSON object only."
+        )
         return prompt
 
     def _create_detailed_comparison_prompt(
@@ -215,48 +194,34 @@ Return ONLY valid JSON object:
     ) -> str:
         """
         Create a prompt for detailed comparison with strengths/weaknesses analysis.
-        
+        Concise format for fast detailed comparison with JSON mode.
         Args:
             resumes_data: List of resume data dictionaries
             target_role: Optional target role for comparison context
-            
         Returns:
             Formatted prompt string
         """
         candidates_section = self._format_candidates_section(resumes_data)
         target_section = ""
         if target_role:
-            target_section = f"\nTARGET ROLE: {target_role}\n"
+            target_section = f"\nTARGET ROLE: {target_role}"
 
-        prompt = f"""
-Provide detailed comparison of these candidates with strengths and weaknesses analysis.
-
-{candidates_section}{target_section}
-
-For each candidate, provide:
-1. Overall fit score (0-100)
-2. Key strengths (list 3-4)
-3. Key weaknesses (list 2-3)
-4. Technical proficiency assessment
-5. Experience level assessment
-6. Growth potential
-
-Return ONLY valid JSON object:
-{{
-  "candidates": [
-    {{
-      "name": "Candidate Name",
-      "overall_fit_score": 85,
-      "strengths": ["Strength1", "Strength2"],
-      "weaknesses": ["Weakness1"],
-      "technical_proficiency": "High",
-      "experience_level": "Mid-level",
-      "growth_potential": "High"
-    }}
-  ],
-  "comparative_insights": "Overall insights comparing all candidates"
-}}
-"""
+        prompt = (
+            "ROLE: Expert Recruiter & Detailed Analyst.\n"
+            "TASK: Provide detailed candidate comparison with scores and analysis as JSON object.\n\n"
+            f"{candidates_section}\n{target_section}\n\n"
+            "FOR EACH CANDIDATE:\n"
+            "- overall_fit_score: 0-100 integer\n"
+            "- strengths: Array of top 3 strengths\n"
+            "- weaknesses: Array of top 2 weaknesses\n"
+            "- technical_proficiency: 'High' | 'Medium' | 'Low'\n"
+            "- experience_level: 'Entry-level' | 'Mid-level' | 'Senior'\n"
+            "- growth_potential: 'High' | 'Medium' | 'Low'\n\n"
+            "OUTPUT FORMAT:\n"
+            "- candidates: Array of candidate objects (listed above)\n"
+            "- comparative_insights: 2-3 sentence overall comparison\n\n"
+            "RETURN: JSON object only."
+        )
         return prompt
 
     # ========== HELPER METHODS ==========
@@ -265,16 +230,12 @@ Return ONLY valid JSON object:
         """Format candidates section for prompt."""
         candidates_section = "CANDIDATES:\n"
         for idx, resume in enumerate(resumes_data, 1):
-            personal_info = self.extract_personal_info(resume)
-            skills = self.format_skills(resume.get("skills", []))
-            experience = self.format_work_experience(resume.get("workExperience", []))
-            
-            candidates_section += f"""
-Candidate {idx}: {personal_info['name']}
-Skills: {skills}
-Experience: {experience}
-
-"""
+            profile_block = self.render_candidate_profile(
+                resume,
+                include_personal_info=True,
+                include_highlights=False
+            )
+            candidates_section += f"\nCandidate {idx}:\n{profile_block}\n"
         return candidates_section
 
     # ========== RESPONSE PARSING METHODS ==========

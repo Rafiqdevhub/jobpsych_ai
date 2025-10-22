@@ -31,7 +31,7 @@ class BatchAnalyzeService(BasePromptService):
             raise ValueError("GOOGLE_API_KEY environment variable is required")
         if not GENAI_AVAILABLE or not genai:
             raise ImportError("google-generativeai package is not available")
-        genai.configure(api_key=self.api_key)
+        genai.configure(api_key=self.api_key)  # type: ignore[attr-defined]
         self._model = None
 
     @property
@@ -42,16 +42,16 @@ class BatchAnalyzeService(BasePromptService):
                 raise ImportError("google-generativeai package is not available")
             # Force JSON output from the model
             try:
-                json_config = genai.types.GenerationConfig(
+                json_config = genai.types.GenerationConfig(  # type: ignore[attr-defined]
                     response_mime_type="application/json"
                 )
-                self._model = genai.GenerativeModel(
+                self._model = genai.GenerativeModel(  # type: ignore[attr-defined]
                     self.DEFAULT_MODEL,
                     generation_config=json_config
                 )
             except Exception:
                 # Fallback if JSON mode is not available
-                self._model = genai.GenerativeModel(self.DEFAULT_MODEL)
+                self._model = genai.GenerativeModel(self.DEFAULT_MODEL)  # type: ignore[attr-defined]
         return self._model
 
     async def generate(self, resume_data: Dict[str, Any], **kwargs) -> List[RoleRecommendation]:
@@ -129,49 +129,25 @@ class BatchAnalyzeService(BasePromptService):
         Returns:
             Formatted prompt string for AI model
         """
-        skills = self.format_skills(resume_data.get("skills", []))
-        experience_summary = self.format_work_experience(resume_data.get("workExperience", []))
-        education_summary = self.format_education(resume_data.get("education", []))
-
-        prompt = f"""ROLE: Expert Career Advisor & Technical Recruiter.
-
-TASK: Recommend 5 best-fit job roles for this candidate.
-
-CANDIDATE_PROFILE:
-Skills: {skills}
-Work_Experience: {experience_summary}
-Education: {education_summary}
-
-INSTRUCTIONS:
-1. Generate top 5 most suitable roles.
-2. For matchPercentage use this rubric:
-   - 90-100: Perfect fit, all key skills match
-   - 75-89: Strong fit, most key skills match
-   - 60-74: Good fit, some skills match, some missing
-   - <60: Potential fit, significant skill gaps
-3. reasoning: MUST be 1-2 sentences maximum, direct and concise only
-4. requiredSkills: List 2-3 TOP skills candidate HAS (most relevant only)
-5. missingSkills: List 2-3 TOP skills candidate LACKS (most critical only)
-
-RESPONSE SCHEMA (MUST FOLLOW):
-You MUST output a valid JSON array with exactly this structure. EVERY object MUST have roleName and matchPercentage:
-[
-  {{
-    "roleName": "string (required)",
-    "matchPercentage": "number 0-100 (required)",
-    "reasoning": "string (required - max 2 sentences, concise)",
-    "requiredSkills": ["string"],
-    "missingSkills": ["string"]
-  }}
-]
-
-CONCISENESS RULES:
-- reasoning: Direct facts only, no fluff. Example: "5+ years in Python and Django. Needs cloud experience."
-- requiredSkills: Top 2-3 most relevant skills ONLY
-- missingSkills: Top 2-3 most critical missing skills ONLY
-- NO lengthy explanations or detailed descriptions
-
-OUTPUT: Return ONLY the JSON array. No additional text before or after."""
+        profile_block = self.render_candidate_profile(
+            resume_data,
+            include_personal_info=False,
+            include_highlights=False
+        )
+        prompt = (
+            "ROLE: Expert Career Advisor & Technical Recruiter.\n"
+            "TASK: Produce JSON array of exactly 5 best-fit roles sorted by matchPercentage (integer 0-100).\n"
+            f"{self.MATCH_RUBRIC}\n\n"
+            "OUTPUT FIELDS:\n"
+            "- roleName\n"
+            "- matchPercentage (int 0-100)\n"
+            "- reasoning (<=2 direct sentences)\n"
+            "- requiredSkills (top 2-3 relevant skills candidate already has)\n"
+            "- missingSkills (top 2-3 critical gaps)\n\n"
+            "CONCISENESS: facts only, no fluff.\n\n"
+            f"CANDIDATE SNAPSHOT:\n{profile_block}\n\n"
+            "RETURN: JSON array only."
+        )
         return prompt
 
     def _create_role_fit_prompt(
@@ -192,52 +168,29 @@ OUTPUT: Return ONLY the JSON array. No additional text before or after."""
         Returns:
             Formatted prompt string for AI model
         """
-        skills = self.format_skills(resume_data.get("skills", []))
-        experience_summary = self.format_work_experience(resume_data.get("workExperience", []))
-        education_summary = self.format_education(resume_data.get("education", []))
+        profile_block = self.render_candidate_profile(
+            resume_data,
+            include_personal_info=False,
+            include_highlights=False
+        )
+        job_section = ""
+        if job_description:
+            job_section = f"\nJOB DESCRIPTION (truncated to 300 chars):\n{job_description[:300]}"
 
-        job_section = f"Job_Description: {job_description[:300]}\n" if job_description else ""
-
-        prompt = f"""ROLE: Expert Recruiter & Career Analyst.
-
-TASK: Analyze candidate fit for {target_role}.
-
-CANDIDATE_PROFILE:
-Skills: {skills}
-Work_Experience: {experience_summary}
-Education: {education_summary}
-
-{job_section}
-INSTRUCTIONS:
-1. Provide primary analysis for {target_role}.
-2. For matchPercentage use this rubric:
-   - 90-100: Perfect fit, all key skills match
-   - 75-89: Strong fit, most key skills match
-   - 60-74: Good fit, some skills match, some missing
-   - <60: Potential fit, significant skill gaps
-3. reasoning: MUST be 1-2 sentences maximum, direct and concise only
-4. requiredSkills: List 2-3 TOP skills candidate HAS (most relevant only)
-5. missingSkills: List 2-3 TOP skills candidate LACKS (most critical only)
-
-RESPONSE SCHEMA (MUST FOLLOW):
-You MUST output a valid JSON array with exactly this structure. EVERY object MUST have roleName and matchPercentage:
-[
-  {{
-    "roleName": "string (required)",
-    "matchPercentage": "number 0-100 (required)",
-    "reasoning": "string (required - max 2 sentences, concise)",
-    "requiredSkills": ["string"],
-    "missingSkills": ["string"]
-  }}
-]
-
-CONCISENESS RULES:
-- reasoning: Direct facts only, no fluff. Example: "Strong Python and Django skills. Needs AWS/cloud experience."
-- requiredSkills: Top 2-3 most relevant skills ONLY
-- missingSkills: Top 2-3 most critical missing skills ONLY
-- NO lengthy explanations or detailed descriptions
-
-OUTPUT: Return ONLY the JSON array. No additional text before or after."""
+        prompt = (
+            "ROLE: Expert Recruiter & Career Analyst.\n"
+            f"TASK: Score candidate fit for {target_role} and return JSON array of the target role plus strongest alternatives sorted by matchPercentage (integer 0-100). First entry must be {target_role}.\n"
+            f"{self.MATCH_RUBRIC}\n\n"
+            "OUTPUT FIELDS:\n"
+            "- roleName\n"
+            "- matchPercentage (int 0-100)\n"
+            "- reasoning (<=2 direct sentences)\n"
+            "- requiredSkills (top 2-3 proven skills)\n"
+            "- missingSkills (top 2-3 gaps)\n\n"
+            "CONCISENESS: direct facts only.\n\n"
+            f"CANDIDATE SNAPSHOT:\n{profile_block}{job_section}\n\n"
+            "RETURN: JSON array only."
+        )
         return prompt
 
     # ========== RESPONSE PARSING METHODS ==========

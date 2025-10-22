@@ -14,6 +14,14 @@ class BasePromptService(ABC):
     # ========== MODEL CONFIGURATIONS ==========
     DEFAULT_MODEL = "gemini-2.5-flash"
     ADVANCED_MODEL = "gemini-2.5-pro"
+
+    MATCH_RUBRIC = (
+        "MATCH RUBRIC:\n"
+        "- 90-100: Perfect fit; ready immediately.\n"
+        "- 75-89: Strong fit; minor gaps only.\n"
+        "- 60-74: Good fit; notable gaps to close.\n"
+        "- <60: Potential fit; major upskilling required."
+    )
     
     # ========== FILE FORMAT VALIDATION ==========
     SUPPORTED_FORMATS = ('.pdf', '.doc', '.docx')
@@ -40,16 +48,16 @@ class BasePromptService(ABC):
                     raise ImportError("google-generativeai package is not available")
                 # Enable JSON mode for guaranteed valid JSON output
                 try:
-                    json_config = genai.types.GenerationConfig(
+                    json_config = genai.types.GenerationConfig(  # type: ignore[attr-defined]
                         response_mime_type="application/json"
                     )
-                    self._model = genai.GenerativeModel(
+                    self._model = genai.GenerativeModel(  # type: ignore[attr-defined]
                         self.DEFAULT_MODEL,
                         generation_config=json_config
                     )
                 except Exception:
                     # Fallback if JSON mode not available in this version
-                    self._model = genai.GenerativeModel(self.DEFAULT_MODEL)
+                    self._model = genai.GenerativeModel(self.DEFAULT_MODEL)  # type: ignore[attr-defined]
             except ImportError as e:
                 raise ImportError(f"Failed to initialize AI model: {str(e)}")
         return self._model
@@ -89,6 +97,45 @@ class BasePromptService(ABC):
         """Format highlights section - concise."""
         formatted = [f"- {h[:100]}" for h in highlights_list[:2]]
         return "\n".join(formatted) or "None"
+
+    def build_candidate_profile(self, resume_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Build formatted candidate profile slices for prompt context."""
+        return {
+            "skills": self.format_skills(resume_data.get("skills", [])),
+            "experience": self.format_work_experience(resume_data.get("workExperience", [])),
+            "education": self.format_education(resume_data.get("education", [])),
+            "highlights": self.format_highlights(resume_data.get("highlights", [])),
+            "personal_info": self.extract_personal_info(resume_data)
+        }
+
+    def render_candidate_profile(
+        self,
+        resume_data: Dict[str, Any],
+        *,
+        include_personal_info: bool = False,
+        include_highlights: bool = True
+    ) -> str:
+        """Render a compact multi-line candidate profile for prompting."""
+        profile = self.build_candidate_profile(resume_data)
+        lines: List[str] = []
+
+        def _append(label: str, value: str) -> None:
+            if value and value not in {"None", "No skills listed"}:
+                lines.append(f"{label}: {value}")
+
+        if include_personal_info:
+            personal = profile.get("personal_info", {})
+            name = personal.get("name") or "Candidate"
+            lines.append(f"Name: {name}")
+
+        _append("Skills", profile.get("skills", ""))
+        _append("Experience", profile.get("experience", ""))
+        _append("Education", profile.get("education", ""))
+
+        if include_highlights:
+            _append("Highlights", profile.get("highlights", ""))
+
+        return "\n".join(lines) if lines else "No resume details provided"
 
     @staticmethod
     def extract_personal_info(resume_data: Dict[str, Any]) -> Dict[str, str]:
