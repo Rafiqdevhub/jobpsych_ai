@@ -313,7 +313,14 @@ class RateLimitService:
             # Error - don't block
             return True
 
-    async def increment_compare_resumes_counter(self, email: str) -> bool:
+    async def increment_compare_resumes_counter(self, email: str, count: int = 1) -> bool:
+        """
+        Increment compare_resumes counter.
+        Args:
+            email: User email
+            count: Number of comparisons/files to increment (default 1)
+        Returns: True if successful, False otherwise
+        """
         try:
             # Normalize email
             normalized_email = email.lower().strip()
@@ -322,7 +329,7 @@ class RateLimitService:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     url,
-                    json={"email": normalized_email},
+                    json={"email": normalized_email, "count": count},
                     headers={"Content-Type": "application/json"},
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:

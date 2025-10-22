@@ -705,8 +705,12 @@ async def compare_resumes(
             )
 
         # ========== STEP 4: TRACK COMPARISON ==========
-        # Only increment compare_resumes counter (NOT filesUploaded)
-        await rate_limit_service.increment_compare_resumes_counter(user_email)
+        # Increment compare_resumes counter by the number of files successfully analyzed
+        successful_count = len(successful_candidates)
+        
+        if successful_count > 0:
+            # Example: 3 files uploaded → compare_resumes +3
+            await rate_limit_service.increment_compare_resumes_counter(user_email, successful_count)
 
         # ========== STEP 5: GET UPDATED STATS ==========
         updated_usage = await rate_limit_service.get_feature_usage(user_email)
