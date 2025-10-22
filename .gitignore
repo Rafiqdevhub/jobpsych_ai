@@ -32,6 +32,7 @@ wheels/
 MANIFEST
 copilot-instructions.md
 response.json
+instructions.prompt.md
 
 # PyInstaller
 *.manifest
