@@ -80,21 +80,26 @@ class TestRoleRecommender:
     async def test_recommend_roles_returns_list(self, recommender):
         """Test role recommendation returns proper structure"""
         resume_data = {
-            "personal_info": {"name": "Test User"},
+            "personalInfo": {"name": "Test User"},
             "skills": ["Python", "FastAPI"],
-            "experience": []
+            "workExperience": []
         }
         
-        with patch.object(recommender, 'recommend_roles') as mock_recommend:
-            mock_recommend.return_value = {
-                "recommended_roles": ["Backend Developer", "Software Engineer"],
-                "match_scores": {}
-            }
+        with patch.object(recommender, 'generate') as mock_generate:
+            mock_generate.return_value = [
+                {
+                    "roleName": "Backend Developer",
+                    "matchPercentage": 85,
+                    "reasoning": "Strong Python skills",
+                    "requiredSkills": ["Python"],
+                    "missingSkills": []
+                }
+            ]
             
-            result = await recommender.recommend_roles(resume_data)
+            result = await recommender.generate(resume_data)
             
-            assert "recommended_roles" in result
-            assert isinstance(result["recommended_roles"], list)
+            assert isinstance(result, list)
+            assert len(result) > 0
     
     @pytest.mark.asyncio
     async def test_analyze_role_fit(self, recommender):
