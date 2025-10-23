@@ -7,11 +7,9 @@ class BasePromptService(ABC):
     """
     Base prompt service providing shared utilities and constants for all route-specific prompt services.
     Handles common tasks like formatting, parsing, and AI model interaction.
-    
     Uses JSON mode for guaranteed valid JSON output from AI model.
     """
 
-    # ========== MODEL CONFIGURATIONS ==========
     DEFAULT_MODEL = "gemini-2.5-flash"
     ADVANCED_MODEL = "gemini-2.5-pro"
 
@@ -23,11 +21,9 @@ class BasePromptService(ABC):
         "- <60: Potential fit; major upskilling required."
     )
     
-    # ========== FILE FORMAT VALIDATION ==========
     SUPPORTED_FORMATS = ('.pdf', '.doc', '.docx')
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
-    # ========== RATE LIMITING THRESHOLDS ==========
     WARNING_THRESHOLD_BATCHES = 10
     WARNING_THRESHOLD_COMPARISONS = 10
 
@@ -38,7 +34,6 @@ class BasePromptService(ABC):
     @property
     def model(self):
         """Get or initialize the generative AI model instance with JSON mode enabled.
-        
         Uses JSON mode to force valid JSON output, eliminating need for text parsing.
         This is faster and 100% reliable.
         """
@@ -63,7 +58,6 @@ class BasePromptService(ABC):
         return self._model
 
     # ========== FORMATTING UTILITIES ==========
-
     @staticmethod
     def format_work_experience(experience_list: List[Dict[str, Any]]) -> str:
         """Format work experience section - concise."""
@@ -149,12 +143,10 @@ class BasePromptService(ABC):
         }
 
     # ========== PARSING UTILITIES ==========
-
     @staticmethod
     def parse_json_response(response_text: str, start_marker: str = "{", end_marker: str = "}") -> Dict[str, Any]:
         """
         Parse JSON response from AI model.
-        
         With JSON mode enabled, the model ONLY outputs valid JSON, so direct parsing works.
         This eliminates complex text extraction logic.
         """
@@ -167,7 +159,6 @@ class BasePromptService(ABC):
     def parse_json_array_response(response_text: str) -> List[Dict[str, Any]]:
         """
         Parse JSON array response from AI model.
-        
         With JSON mode enabled, the model ONLY outputs valid JSON arrays, so direct parsing works.
         No need to search for '[' and ']' in the text.
         """
@@ -177,7 +168,6 @@ class BasePromptService(ABC):
             raise ValueError(f"Failed to parse JSON array response: {str(e)}\nResponse: {response_text[:200]}")
 
     # ========== VALIDATION UTILITIES ==========
-
     @staticmethod
     def validate_file_format(filename: str) -> bool:
         """Validate if file has supported format."""
@@ -191,7 +181,6 @@ class BasePromptService(ABC):
         return file_size <= BasePromptService.MAX_FILE_SIZE
 
     # ========== ERROR HANDLING ==========
-
     @staticmethod
     def handle_file_error(error_message: str) -> str:
         """Convert error messages to user-friendly messages."""
@@ -203,7 +192,6 @@ class BasePromptService(ABC):
             return "Analysis failed. Please try again."
 
     # ========== ABSTRACT METHODS ==========
-
     @abstractmethod
     async def generate(self, resume_data: Dict[str, Any], **kwargs) -> Any:
         """Generate output based on prompt service logic. Must be implemented by subclasses."""

@@ -1,6 +1,7 @@
 import os
 import json
 from typing import Dict, List, Any, Optional
+from app.services.prompts.base_prompt_service import BasePromptService
 from app.models.schemas import RoleRecommendation
 
 try:
@@ -10,27 +11,13 @@ except ImportError:
     genai = None
     GENAI_AVAILABLE = False
 
-class RoleRecommender:
+class RoleRecommender(BasePromptService):
     def __init__(self):
         """Initialize the recommender and configure the generative AI client."""
-        self.api_key = os.getenv("GOOGLE_API_KEY")
-        if not self.api_key:
-            raise ValueError("GOOGLE_API_KEY environment variable is required")
-        if not GENAI_AVAILABLE or not genai:
-            raise ImportError("google-generativeai package is not available")
-        genai.configure(api_key=self.api_key)
-        self._model = None
+        super().__init__()
+        # The API key and model configuration are handled by the BasePromptService
 
-    @property
-    def model(self):
-        """Get the generative AI model instance."""
-        if self._model is None:
-            if not GENAI_AVAILABLE or not genai:
-                raise ImportError("google-generativeai package is not available")
-            self._model = genai.GenerativeModel('gemini-2.5-flash')
-        return self._model
-
-    async def recommend_roles(self, resume_data: Dict[str, Any]) -> List[RoleRecommendation]:
+    async def generate(self, resume_data: Dict[str, Any], **kwargs) -> List[RoleRecommendation]:
         """Recommend suitable job roles based on resume data."""
         model = self.model
         prompt = self._create_role_prompt(resume_data)
@@ -105,6 +92,8 @@ Provide exactly 5 job role recommendations in valid JSON format. For each role, 
 3. Required skills for the role
 4. Skills the candidate might be missing
 
+RECOMMENDATION RUBRIC:
+{self.MATCH_RUBRIC}
 Return ONLY a valid JSON array with this exact structure:
 [
   {{
@@ -115,37 +104,31 @@ Return ONLY a valid JSON array with this exact structure:
     "missingSkills": ["Skill4", "Skill5"]
   }}
 ]
-
-Focus on realistic, current job market roles. Consider the candidate's experience level, technical skills, and career progression. Ensure match percentages are realistic (60-95% range).
+OUTPUT: Return ONLY the JSON array with exactly 5 role recommendations, sorted by matchPercentage descending.
 """
         return prompt
 
     def _create_role_fit_prompt(self, resume_data: Dict[str, Any], target_role: str, job_description: Optional[str] = None) -> str:
         """Create a role-fit analysis prompt"""
-        skills = ", ".join(resume_data.get("skills", []))
-        experience = "\n".join([
-            f"- {exp.get('title', '')} at {exp.get('company', '')} ({exp.get('duration', '')})"
-            for exp in resume_data.get("workExperience", [])
-        ])
-        education = "\n".join([
-            f"- {edu.get('degree', '')} from {edu.get('institution', '')} ({edu.get('year', '')})"
-            for edu in resume_data.get("education", [])
-        ])
+        candidate_profile_block = self.render_candidate_profile(
+            resume_data,
+            include_personal_info=True,
+            include_highlights=True
+        )
         job_context = f"\n\nJob Description:\n{job_description}" if job_description else ""
-        return f"""
-You are an expert HR analyst specializing in role-fit assessment and career guidance.
 
-TARGET ROLE ANALYSIS: {target_role}
+        return f"""
+ROLE: Expert HR Analyst specializing in role-fit assessment and career guidance.
+TASK: Analyze candidate's fit for the target role and provide alternative recommendations.
+INSTRUCTIONS: Evaluate skills match, experience relevance, and potential. Be direct and concise.
+
+CANDIDATE PROFILE:
+{candidate_profile_block}
+
+TARGET ROLE: {target_role}
 {job_context}
 
 CANDIDATE PROFILE:
-Skills: {skills}
-
-Work Experience:
-{experience}
-
-Education:
-{education}
 
 TASK: Analyze this candidate's fit for the "{target_role}" position and provide role recommendations.
 
@@ -156,6 +139,8 @@ Requirements:
    - List specific skills they have that match the role
    - List specific skills they need to develop
 
+RECOMMENDATION RUBRIC:
+{self.MATCH_RUBRIC}
 2. THEN: Recommend 4 alternative roles they might be better suited for
    - Focus on roles that better match their current skill set
    - Include emerging opportunities based on their background
@@ -182,46 +167,49 @@ Example format:
   // ... 4 alternative role recommendations
 ]
 
-Focus on providing actionable insights and realistic assessments.
+OUTPUT: Return ONLY the JSON array. Target role first, followed by 4 alternative roles sorted by matchPercentage descending.
 """
 
     def _parse_recommendations(self, response_text: str) -> List[Dict[str, Any]]:
         """Parse the AI response and extract role recommendations"""
         try:
-            # Clean the response text
-            cleaned_text = response_text.strip()
-            # Find JSON content between brackets
-            start_idx = cleaned_text.find('[')
-            end_idx = cleaned_text.rfind(']') + 1
-            if start_idx == -1 or end_idx == 0:
-                raise ValueError("No valid JSON array found in response")
-            json_text = cleaned_text[start_idx:end_idx]
-            # Parse JSON
-            recommendations = json.loads(json_text)
-            # Validate structure
+            recommendations = self.parse_json_array_response(response_text)
+            
             if not isinstance(recommendations, list):
-                raise ValueError("Response is not a list")
-            # Validate each recommendation
+                raise ValueError(f"Response must be a JSON array, got {type(recommendations).__name__}")
+            
+            if len(recommendations) == 0:
+                raise ValueError("Response array is empty - no recommendations provided")
+            
+            validated_recs = []
             required_fields = ["roleName", "matchPercentage", "reasoning"]
-            for i, rec in enumerate(recommendations):
+            for i, rec in enumerate(recommendations): # type: ignore
                 if not isinstance(rec, dict):
-                    raise ValueError(f"Recommendation {i} is not a dictionary")
+                    raise ValueError(f"Recommendation {i} is not a JSON object: {type(rec).__name__}")
+                
+                # Check required fields
                 for field in required_fields:
                     if field not in rec:
-                        raise ValueError(f"Missing required field '{field}' in recommendation {i}")
-                # Ensure match percentage is valid
-                if not isinstance(rec.get("matchPercentage"), (int, float)) or not (0 <= rec["matchPercentage"] <= 100):
-                    rec["matchPercentage"] = 75  # Default fallback
-                # Ensure lists are actually lists
+                        raise ValueError(f"Recommendation {i} missing required field: {field}")
+                
+                # Validate matchPercentage is a number
+                try:
+                    match_pct = float(rec["matchPercentage"])
+                    if not (0 <= match_pct <= 100):
+                        raise ValueError(f"matchPercentage {match_pct} not in range 0-100")
+                    rec["matchPercentage"] = int(match_pct)
+                except (ValueError, TypeError) as e:
+                    raise ValueError(f"Recommendation {i}: matchPercentage must be a number 0-100: {e!s}")
+                
+                # Ensure skill lists are present and are lists
                 for list_field in ["requiredSkills", "missingSkills"]:
-                    if list_field in rec and not isinstance(rec[list_field], list):
+                    if list_field not in rec or not isinstance(rec[list_field], list):
                         rec[list_field] = []
-                # Remove unwanted fields if present
-                for remove_field in ["careerLevel", "salaryRange", "industryFit"]:
-                    if remove_field in rec:
-                        rec.pop(remove_field)
-            return recommendations[:5]  # Limit to 5 recommendations
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in AI response: {str(e)}")
+                
+                validated_recs.append(rec)
+            
+            return validated_recs[:5]  # Limit to 5 recommendations as per original logic
+        except ValueError as e:
+            raise ValueError(f"Error parsing or validating recommendations: {e!s}")
         except Exception as e:
-            raise ValueError(f"Error parsing recommendations: {str(e)}")
+            raise ValueError(f"An unexpected error occurred during recommendation parsing: {e!s}")

@@ -44,7 +44,6 @@ async def analyze_resume(
     job_description: Optional[str] = Form(None)
 ):
     try:
-        # Parse the resume
         parser = ResumeParser()
         resume_data = await parser.parse(file)
         
@@ -62,7 +61,6 @@ async def analyze_resume(
         personality_insights = await analyze_service.analyze_personality(resume_data)
         career_path = await analyze_service.predict_career_path(resume_data)
         
-        # If target role provided, generate personalized preparation plan
         preparation_plan = None
         if target_role:
             try:
@@ -71,7 +69,6 @@ async def analyze_resume(
                 )
             except Exception as e:
                 print(f"Warning: Could not generate preparation plan: {str(e)}")
-                # Don't fail the entire request if preparation plan fails
                 preparation_plan = None
         
         response = ResumeAnalysisResponse(
@@ -123,7 +120,6 @@ async def hiredesk_analyze(
                 }
             )
 
-        # Validate file
         if not file.filename:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -144,7 +140,6 @@ async def hiredesk_analyze(
                 }
             )
 
-        # Check file size (max 10MB)
         file_content = await file.read()
         if len(file_content) > 10 * 1024 * 1024:  # 10MB
             raise HTTPException(
@@ -281,13 +276,11 @@ async def batch_analyze_resumes(
 ):
     """
     Analyze multiple resumes in batch with rate limiting
-    
     Requirements:
     - Authentication required (JWT token)
     - Maximum 5 files per batch
     - Maximum 10 files per account (free tier)
     - Tracks: batch_analysis counter and filesUploaded counter
-    
     Response includes batch summary and updated usage statistics
     """
     try:
@@ -375,14 +368,12 @@ async def batch_analyze_resumes(
 
         for file in files:
             try:
-                # Validate file
                 if not file.filename:
                     raise ValueError("No filename provided")
 
                 if not file.filename.lower().endswith(('.pdf', '.doc', '.docx')):
                     raise ValueError("Invalid file format. Please upload PDF, DOC, or DOCX files only.")
 
-                # Check file size (max 10MB)
                 file_content = await file.read()
                 if len(file_content) > 10 * 1024 * 1024:
                     raise ValueError("File too large. Maximum size is 10MB.")
@@ -402,16 +393,14 @@ async def batch_analyze_resumes(
                 else:
                     role_recommendations = await batch_service.generate(resume_data)
 
-                # Advanced analysis
                 advanced_analyzer = AdvancedAnalyzer()
                 resume_score = await advanced_analyzer.calculate_resume_score(resume_data)
                 personality_insights = await advanced_analyzer.analyze_personality(resume_data)
                 career_path = await advanced_analyzer.predict_career_path(resume_data)
 
-                # Build response
                 response = ResumeAnalysisResponse(
                     resumeData=ResumeData(**resume_data),
-                    questions=[],  # No questions for batch analysis
+                    questions=[], 
                     roleRecommendations=role_recommendations,
                     resumeScore=resume_score,
                     personalityInsights=personality_insights,
@@ -441,7 +430,6 @@ async def batch_analyze_resumes(
                 import traceback
                 traceback.print_exc()
                 
-                # Preserve detailed error for API response (helps with debugging)
                 detailed_error = error_message
                 
                 if "PDF" in error_message:
@@ -463,8 +451,6 @@ async def batch_analyze_resumes(
         successful_count = len(successful_files)
 
         if successful_count > 0:
-            # Increment batch_analysis counter by the number of files uploaded
-            # Example: 3 files uploaded → batch_analysis +3
             await rate_limit_service.increment_batch_counter(user_email, successful_count)
 
         # ========== STEP 5: GET UPDATED STATS ==========
@@ -476,7 +462,6 @@ async def batch_analyze_resumes(
                 "compare_resumes": 0
             }
 
-        # For batch_analyze, only show batch_analysis counter
         warning_at_batches = 10  # Warning threshold for batch operations
         approaching_limit = updated_usage["batch_analysis"] >= warning_at_batches
 
@@ -498,7 +483,6 @@ async def batch_analyze_resumes(
             "results": results
         }
 
-        # Add rejected files information if partial upload
         if partial_upload and files_rejected > 0:
             batch_response["upload_limit_info"] = {
                 "reached_limit": True,
@@ -512,7 +496,6 @@ async def batch_analyze_resumes(
                 }
             }
 
-        # Add upgrade prompt if approaching batch limit
         if approaching_limit:
             batch_response["upgrade_prompt"] = {
                 "show": True,
@@ -521,7 +504,6 @@ async def batch_analyze_resumes(
                 "batches_processed": updated_usage['batch_analysis']
             }
 
-        # Add failed files details if any
         if failed_files:
             batch_response["failed_files_details"] = [
                 {"filename": fname, "error": error}
@@ -550,7 +532,6 @@ async def compare_resumes(
 ):
     """
     Compare multiple resumes and rank them.
-    
     Requires: 2-5 resumes
     Rate Limit: 1 comparison per batch (same as batch analysis)
     Authentication: Required (JWT token)
@@ -592,7 +573,6 @@ async def compare_resumes(
             )
 
         # ========== STEP 2: CHECK RATE LIMIT ==========
-        # Treat comparison as batch operation
         rate_limit_check = await rate_limit_service.check_batch_analysis_limit(
             user_email,
             len(files)
@@ -610,7 +590,7 @@ async def compare_resumes(
                         "submitted": rate_limit_check["submitted"]
                     }
                 )
-            else:  # file_limit_exceeded
+            else: 
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail={
@@ -691,7 +671,6 @@ async def compare_resumes(
                     "status": "error"
                 })
 
-        # Check if we have at least 2 successful analyses
         successful_candidates = [c for c in candidates if c["status"] == "success"]
         if len(successful_candidates) < 2:
             raise HTTPException(
@@ -705,11 +684,9 @@ async def compare_resumes(
             )
 
         # ========== STEP 4: TRACK COMPARISON ==========
-        # Increment compare_resumes counter by the number of files successfully analyzed
         successful_count = len(successful_candidates)
         
         if successful_count > 0:
-            # Example: 3 files uploaded → compare_resumes +3
             await rate_limit_service.increment_compare_resumes_counter(user_email, successful_count)
 
         # ========== STEP 5: GET UPDATED STATS ==========
@@ -721,12 +698,10 @@ async def compare_resumes(
                 "compare_resumes": 0
             }
 
-        # For compare_resumes, only show compare_resumes counter
-        warning_at_comparisons = 10  # Warning threshold for comparison operations
+        warning_at_comparisons = 10
         approaching_limit = updated_usage["compare_resumes"] >= warning_at_comparisons
 
         # ========== STEP 6: RANK & RETURN RESULTS ==========
-        # Rank candidates by score
         ranked_candidates = sorted(
             [c for c in candidates if c["status"] == "success"],
             key=lambda x: x.get("score", 0),
@@ -756,7 +731,6 @@ async def compare_resumes(
             ]
         }
 
-        # Add upgrade prompt if approaching comparison limit
         if approaching_limit:
             comparison_response["upgrade_prompt"] = {
                 "show": True,
@@ -765,7 +739,6 @@ async def compare_resumes(
                 "comparisons_completed": updated_usage['compare_resumes']
             }
 
-        # Add failed files details if any
         if failed_files:
             comparison_response["failed_files_details"] = [
                 {"filename": fname, "error": error}

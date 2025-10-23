@@ -11,8 +11,8 @@ class RateLimitService:
         self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "https://jobpsych-auth.vercel.app/api")
         # self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "http://localhost:5000/api")
         self.upload_limit = 10
-        self.batch_size_limit = 5  # Files per batch
-        self.free_tier_limit = 10  # Total files for free users
+        self.batch_size_limit = 5
+        self.free_tier_limit = 10
 
     async def check_files_uploaded_limit(self, email: str) -> Dict:
         """
@@ -34,14 +34,6 @@ class RateLimitService:
                             "current_count": files_uploaded,
                             "limit": self.upload_limit,
                             "remaining": max(0, self.upload_limit - files_uploaded)
-                        }
-                    elif response.status == 404:
-                        # User not found, treat as new user with 0 uploads
-                        return {
-                            "allowed": True,
-                            "current_count": 0,
-                            "limit": self.upload_limit,
-                            "remaining": self.upload_limit
                         }
                     else:
                         # If service is unavailable, allow the request

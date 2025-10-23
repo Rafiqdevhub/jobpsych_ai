@@ -129,7 +129,6 @@ class CompareResumesService(BasePromptService):
             raise ValueError(f"Failed to generate detailed comparison: {str(e)}")
 
     # ========== PROMPT CREATION METHODS ==========
-
     def _create_role_prompt(self, resume_data: Dict[str, Any]) -> str:
         """Create a prompt for single resume role recommendation."""
         profile_block = self.render_candidate_profile(
@@ -225,7 +224,6 @@ class CompareResumesService(BasePromptService):
         return prompt
 
     # ========== HELPER METHODS ==========
-
     def _format_candidates_section(self, resumes_data: List[Dict[str, Any]]) -> str:
         """Format candidates section for prompt."""
         candidates_section = "CANDIDATES:\n"
@@ -239,7 +237,6 @@ class CompareResumesService(BasePromptService):
         return candidates_section
 
     # ========== RESPONSE PARSING METHODS ==========
-
     def _parse_recommendations(self, response_text: str) -> List[Dict[str, Any]]:
         """Parse role recommendations from AI response."""
         recommendations = self.parse_json_array_response(response_text)

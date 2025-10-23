@@ -107,7 +107,6 @@ class QuestionGenerator(BasePromptService):
             raise ValueError(f"Failed to generate role-specific questions: {str(e)}")
 
     # ========== PROMPT CREATION METHODS ==========
-
     def _create_prompt(self, resume_data: Dict[str, Any]) -> str:
         """Create optimized structured prompt for general interview questions."""
         skills = self.format_skills(resume_data.get("skills", []))
@@ -190,7 +189,6 @@ OUTPUT: Return ONLY the JSON array. No additional text before or after."""
         return prompt
 
     # ========== RESPONSE PARSING METHODS ==========
-
     def _parse_questions(self, response_text: str) -> List[Dict[str, str]]:
         """Parse interview questions from AI response with validation."""
         questions = self.parse_json_array_response(response_text)

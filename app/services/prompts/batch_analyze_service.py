@@ -89,12 +89,10 @@ class BatchAnalyzeService(BasePromptService):
     ) -> List[RoleRecommendation]:
         """
         Analyze if candidate fits the target role for batch processing.
-        
         Args:
             resume_data: Parsed resume data dictionary
             target_role: Target job role to analyze fit for
             job_description: Optional job description for better analysis
-            
         Returns:
             List of RoleRecommendation objects with target role as primary
         """
@@ -117,15 +115,12 @@ class BatchAnalyzeService(BasePromptService):
             raise ValueError(f"Failed to analyze role fit: {str(e)}")
 
     # ========== PROMPT CREATION METHODS ==========
-
     def _create_role_prompt(self, resume_data: Dict[str, Any]) -> str:
         """
         Create an optimized prompt for batch role recommendation.
         Ultra-concise format for fast batch processing.
-        
         Args:
             resume_data: Parsed resume data dictionary
-            
         Returns:
             Formatted prompt string for AI model
         """
@@ -159,12 +154,10 @@ class BatchAnalyzeService(BasePromptService):
         """
         Create an optimized prompt for batch role fit analysis.
         Ultra-concise format for fast batch processing.
-        
         Args:
             resume_data: Parsed resume data dictionary
             target_role: Target role to analyze
-            job_description: Optional job description
-            
+            job_description: Optional job description 
         Returns:
             Formatted prompt string for AI model
         """
@@ -194,7 +187,6 @@ class BatchAnalyzeService(BasePromptService):
         return prompt
 
     # ========== RESPONSE PARSING METHODS ==========
-
     def _parse_recommendations(self, response_text: str) -> List[Dict[str, Any]]:
         """Parse role recommendations from AI response with validation."""
         recommendations = self.parse_json_array_response(response_text)

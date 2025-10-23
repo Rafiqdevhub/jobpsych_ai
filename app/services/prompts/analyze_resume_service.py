@@ -46,18 +46,16 @@ class AnalyzeResumeService(BasePromptService):
                     generation_config=json_config
                 )
             except Exception:
-                # Fallback for older API versions
+                # Fallback for older API versions (A fallback response is a default, pre-defined reply or action that a system takes when it doesn't understand a user's input, encounters an error, or cannot find a specific answer.)
                 self._model = genai.GenerativeModel(self.DEFAULT_MODEL)
         return self._model
 
     async def generate(self, resume_data: Dict[str, Any], **kwargs) -> List[RoleRecommendation]:
         """
         Generate general role recommendations based on resume data.
-        
         Args:
             resume_data: Parsed resume data dictionary
             **kwargs: Additional arguments (not used in this method)
-            
         Returns:
             List of RoleRecommendation objects
         """
@@ -87,12 +85,10 @@ class AnalyzeResumeService(BasePromptService):
     ) -> List[RoleRecommendation]:
         """
         Analyze if candidate fits the target role and provide alternatives.
-        
         Args:
             resume_data: Parsed resume data dictionary
             target_role: Target job role to analyze fit for
             job_description: Optional job description for better analysis
-            
         Returns:
             List of RoleRecommendation objects with target role as primary
         """
@@ -117,10 +113,8 @@ class AnalyzeResumeService(BasePromptService):
     async def calculate_resume_score(self, resume_data: Dict[str, Any]) -> ResumeScore:
         """
         Calculate comprehensive resume score across multiple dimensions.
-        
         Args:
             resume_data: Parsed resume data dictionary
-            
         Returns:
             ResumeScore object with detailed breakdown
         """
@@ -137,10 +131,8 @@ class AnalyzeResumeService(BasePromptService):
     async def analyze_personality(self, resume_data: Dict[str, Any]) -> PersonalityInsights:
         """
         Analyze personality traits and work style preferences from resume.
-        
         Args:
             resume_data: Parsed resume data dictionary
-            
         Returns:
             PersonalityInsights object with trait analysis
         """
@@ -157,10 +149,8 @@ class AnalyzeResumeService(BasePromptService):
     async def predict_career_path(self, resume_data: Dict[str, Any]) -> CareerPathPrediction:
         """
         Predict career progression and next opportunities.
-        
         Args:
             resume_data: Parsed resume data dictionary
-            
         Returns:
             CareerPathPrediction object with progression analysis
         """
@@ -183,12 +173,10 @@ class AnalyzeResumeService(BasePromptService):
         """
         Generate a comprehensive preparation plan for a specific target role.
         Analyzes resume against job requirements and provides actionable guidance.
-        
         Args:
             resume_data: Parsed resume data dictionary
             target_role: Target job role to prepare for
             job_description: Optional job description for detailed analysis
-            
         Returns:
             Dictionary with role-specific preparation plan including:
             - Role fit score
@@ -209,7 +197,6 @@ class AnalyzeResumeService(BasePromptService):
             raise ValueError(f"Failed to generate preparation plan: {str(e)}")
 
     # ========== PROMPT CREATION METHODS ==========
-
     def _build_candidate_profile(self, resume_data: Dict[str, Any]) -> Dict[str, str]:
         """
         Build a consolidated candidate profile to avoid repetition in prompts.
@@ -548,7 +535,6 @@ OUTPUT: Return ONLY valid JSON. Be specific, actionable, and encouraging while r
 """
 
     # ========== RESPONSE PARSING METHODS ==========
-
     def _parse_recommendations(self, response_text: str) -> List[Dict[str, Any]]:
         """
         Parse role recommendations from AI response.

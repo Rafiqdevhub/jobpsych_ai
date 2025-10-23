@@ -147,7 +147,6 @@ class HiredeskService(BasePromptService):
             raise ValueError(f"Failed to generate interview questions: {str(e)}")
 
     # ========== PROMPT CREATION METHODS ==========
-
     def _create_role_prompt(self, resume_data: Dict[str, Any]) -> str:
         """Create optimized structured prompt for role recommendations."""
         profile_block = self.render_candidate_profile(resume_data)
@@ -242,7 +241,6 @@ class HiredeskService(BasePromptService):
         return prompt
 
     # ========== RESPONSE PARSING METHODS ==========
-
     def _parse_recommendations(self, response_text: str) -> List[Dict[str, Any]]:
         """Parse role recommendations from AI response with validation."""
         recommendations = self.parse_json_array_response(response_text)
