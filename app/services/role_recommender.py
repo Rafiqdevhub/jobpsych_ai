@@ -1,5 +1,3 @@
-import os
-import json
 from typing import Dict, List, Any, Optional
 from app.services.prompts.base_prompt_service import BasePromptService
 from app.models.schemas import RoleRecommendation
@@ -15,7 +13,6 @@ class RoleRecommender(BasePromptService):
     def __init__(self):
         """Initialize the recommender and configure the generative AI client."""
         super().__init__()
-        # The API key and model configuration are handled by the BasePromptService
 
     async def generate(self, resume_data: Dict[str, Any], **kwargs) -> List[RoleRecommendation]:
         """Recommend suitable job roles based on resume data."""
