@@ -957,7 +957,7 @@ async def selection_candidate(
         )
         
         # ========== STEP 6: UPDATE RATE LIMIT COUNTERS ==========
-        await rate_limit_service.increment_batch_counter(user_email, len(files))
+        await rate_limit_service.increment_selected_candidate_counter(user_email, len(files))
         
         return response
         

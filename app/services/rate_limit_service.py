@@ -340,5 +340,37 @@ class RateLimitService:
     async def increment_upload_count(self, email: str, count: int = 1) -> bool:
         return await self.increment_files_uploaded(email, count)
 
+    async def increment_selected_candidate_counter(self, email: str, count: int = 1) -> bool:
+        """
+        Increment selected_candidate counter for selection-candidate endpoint.
+        Args:
+            email: User email
+            count: Number of selections/files to increment (default 1)
+        Returns: True if successful, False otherwise
+        """
+        try:
+            # Normalize email
+            normalized_email = email.lower().strip()
+            url = f"{self.auth_service_url}/increment-selected-candidate"
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    url,
+                    json={"email": normalized_email, "count": count},
+                    headers={"Content-Type": "application/json"},
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    if response.status == 200:
+                        return True
+                    else:
+                        # Don't block - endpoint missing or temporarily unavailable
+                        return True
+        except asyncio.TimeoutError:
+            # Timeout - don't block
+            return True
+        except Exception as e:
+            # Error - don't block
+            return True
+
 # Global instance
 rate_limit_service = RateLimitService()
