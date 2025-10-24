@@ -73,3 +73,20 @@ class ResumeAnalysisResponse(BaseModel):
     personalityInsights: Optional[PersonalityInsights] = None
     careerPath: Optional[CareerPathPrediction] = None
     preparationPlan: Optional[Dict[str, Any]] = None  # Role-specific preparation guidance
+
+
+class CandidateSelectionResult(BaseModel):
+    """Result for a single candidate in selection process."""
+    candidate: str  # filename or candidate identifier
+    status: str  # "FIT" or "REJECT"
+    message: str  # brief reason for decision
+
+
+class CandidateSelectionResponse(BaseModel):
+    """Response containing selection results for all candidates."""
+    job_title: str
+    keywords: List[str]
+    total_candidates: int
+    fit_count: int
+    reject_count: int
+    results: List[CandidateSelectionResult]

@@ -5,13 +5,14 @@ import logging
 from app.services.resume_parser import ResumeParser
 from app.services.advanced_analyzer import AdvancedAnalyzer
 from app.services.rate_limit_service import rate_limit_service
+from app.services.candidate_selector import CandidateSelector
 from app.services.prompts import (
     AnalyzeResumeService,
     HiredeskService,
     BatchAnalyzeService,
     CompareResumesService
 )
-from app.models.schemas import ResumeAnalysisResponse, ResumeData, Question
+from app.models.schemas import ResumeAnalysisResponse, ResumeData, Question, CandidateSelectionResponse, CandidateSelectionResult
 from app.dependencies.auth import get_current_user, TokenData
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -758,4 +759,219 @@ async def compare_resumes(
                 "error": str(e)
             }
         )
+
+
+@router.post("/selection-candidate", response_model=CandidateSelectionResponse, status_code=status.HTTP_200_OK)
+async def selection_candidate(
+    files: List[UploadFile] = File(...),
+    job_title: str = Form(...),
+    keywords: str = Form(...),
+    current_user: TokenData = Depends(get_current_user)
+):
+    """
+    Evaluate multiple candidates against a job title and keywords.
+    Returns FIT or REJECT status for each candidate.
+    
+    Requirements:
+    - Authentication required (JWT token)
+    - Maximum 5 files per batch
+    - Maximum 10 files per account (free tier)
+    - Tracks filesUploaded counter
+    
+    Args:
+        files: Multiple resume files (PDF, DOC, DOCX)
+        job_title: Target job position (required)
+        keywords: Comma-separated keywords/skills (required)
+        current_user: Authenticated user (from JWT token)
+    
+    Returns:
+        CandidateSelectionResponse with evaluation results
+    """
+    try:
+        user_email = current_user.email
+        partial_upload = False
+        files_rejected = 0
+
+        # ========== STEP 1: VALIDATE BATCH SIZE ==========
+        if not files:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "success": False,
+                    "message": "No files provided.",
+                    "error": "VALIDATION_ERROR"
+                }
+            )
+        
+        if len(files) > rate_limit_service.batch_size_limit:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "success": False,
+                    "message": f"Maximum {rate_limit_service.batch_size_limit} files per batch. You submitted {len(files)}.",
+                    "error": "BATCH_SIZE_EXCEEDED",
+                    "batch_limit": rate_limit_service.batch_size_limit,
+                    "submitted": len(files)
+                }
+            )
+        
+        # ========== STEP 2: CHECK RATE LIMIT ==========
+        rate_limit_check = await rate_limit_service.check_batch_analysis_limit(
+            user_email,
+            len(files)
+        )
+
+        if not rate_limit_check["allowed"]:
+            if rate_limit_check["reason"] == "batch_size_exceeded":
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={
+                        "success": False,
+                        "message": rate_limit_check["message"],
+                        "error": "BATCH_SIZE_EXCEEDED",
+                        "batch_limit": rate_limit_service.batch_size_limit,
+                        "submitted": rate_limit_check["submitted"]
+                    }
+                )
+            else:  # file_limit_exceeded
+                files_allowed = rate_limit_check.get("files_allowed", 0)
+                
+                if files_allowed <= 0:
+                    # User has hit the limit completely
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail={
+                            "success": False,
+                            "message": rate_limit_check["message"],
+                            "error": "RATE_LIMIT_EXCEEDED",
+                            "current_count": rate_limit_check.get("current_files_uploaded", 0),
+                            "batch_size": rate_limit_check.get("batch_size", 0),
+                            "limit": rate_limit_check.get("files_limit", 10),
+                            "files_allowed": 0,
+                            "upgrade_required": True,
+                            "upgrade_message": f"You've reached your free limit of {rate_limit_check.get('files_limit', 10)} files. Upgrade to analyze more candidates."
+                        }
+                    )
+                else:
+                    # User can upload some files - process only what's allowed
+                    files = files[:files_allowed]
+                    partial_upload = True
+                    files_rejected = rate_limit_check.get("would_exceed_by", 0)
+        
+        # ========== STEP 3: VALIDATE JOB TITLE AND KEYWORDS ==========
+        if not job_title or not job_title.strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "success": False,
+                    "message": "Job title is required.",
+                    "error": "VALIDATION_ERROR"
+                }
+            )
+        
+        if not keywords or not keywords.strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "success": False,
+                    "message": "Keywords are required.",
+                    "error": "VALIDATION_ERROR"
+                }
+            )
+        
+        # Parse keywords
+        keywords_list = [k.strip() for k in keywords.split(",") if k.strip()]
+        
+        if not keywords_list:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "success": False,
+                    "message": "No valid keywords provided.",
+                    "error": "VALIDATION_ERROR"
+                }
+            )
+        
+        # ========== STEP 4: VALIDATE FILE FORMATS AND SIZES ==========
+        for file in files:
+            if not file.filename:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={
+                        "success": False,
+                        "message": "One or more files have no filename.",
+                        "error": "VALIDATION_ERROR"
+                    }
+                )
+            
+            if not file.filename.lower().endswith(('.pdf', '.doc', '.docx')):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={
+                        "success": False,
+                        "message": f"Invalid file format: {file.filename}. Please upload PDF, DOC, or DOCX files only.",
+                        "error": "VALIDATION_ERROR"
+                    }
+                )
+            
+            # Check file size before reading
+            file_content = await file.read()
+            if len(file_content) > 10 * 1024 * 1024:  # 10MB
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={
+                        "success": False,
+                        "message": f"File {file.filename} is too large. Maximum size is 10MB.",
+                        "error": "VALIDATION_ERROR"
+                    }
+                )
+            
+            # Reset file pointer after reading
+            await file.seek(0)
+        
+        # ========== STEP 5: EVALUATE CANDIDATES ==========
+        selector = CandidateSelector()
+        results = await selector.evaluate_candidates(files, job_title, keywords_list)
+        
+        # Count fit and reject
+        fit_count = sum(1 for r in results if r["status"] == "FIT")
+        reject_count = len(results) - fit_count
+        
+        # Build response
+        selection_results = [
+            CandidateSelectionResult(
+                candidate=r["candidate"],
+                status=r["status"],
+                message=r["message"]
+            )
+            for r in results
+        ]
+        
+        response = CandidateSelectionResponse(
+            job_title=job_title,
+            keywords=keywords_list,
+            total_candidates=len(results),
+            fit_count=fit_count,
+            reject_count=reject_count,
+            results=selection_results
+        )
+        
+        # ========== STEP 6: UPDATE RATE LIMIT COUNTERS ==========
+        await rate_limit_service.increment_batch_counter(user_email, len(files))
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_message = str(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "success": False,
+                "message": "Error processing candidate selection",
+                "error": error_message
+            }
+        )
+
 
