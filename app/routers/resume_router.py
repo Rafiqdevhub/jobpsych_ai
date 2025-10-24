@@ -834,29 +834,21 @@ async def selection_candidate(
                     }
                 )
             else:  # file_limit_exceeded
-                files_allowed = rate_limit_check.get("files_allowed", 0)
-                
-                if files_allowed <= 0:
-                    # User has hit the limit completely
-                    raise HTTPException(
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail={
-                            "success": False,
-                            "message": rate_limit_check["message"],
-                            "error": "RATE_LIMIT_EXCEEDED",
-                            "current_count": rate_limit_check.get("current_files_uploaded", 0),
-                            "batch_size": rate_limit_check.get("batch_size", 0),
-                            "limit": rate_limit_check.get("files_limit", 10),
-                            "files_allowed": 0,
-                            "upgrade_required": True,
-                            "upgrade_message": f"You've reached your free limit of {rate_limit_check.get('files_limit', 10)} files. Upgrade to analyze more candidates."
-                        }
-                    )
-                else:
-                    # User can upload some files - process only what's allowed
-                    files = files[:files_allowed]
-                    partial_upload = True
-                    files_rejected = rate_limit_check.get("would_exceed_by", 0)
+                # ALWAYS REJECT - No partial uploads allowed for selection-candidate
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail={
+                        "success": False,
+                        "message": rate_limit_check["message"],
+                        "error": "RATE_LIMIT_EXCEEDED",
+                        "current_count": rate_limit_check.get("current_count", 0),
+                        "batch_size": rate_limit_check.get("batch_size", 0),
+                        "limit": rate_limit_check.get("files_limit", 10),
+                        "files_allowed": 0,
+                        "upgrade_required": True,
+                        "upgrade_message": f"You've reached your limit of {rate_limit_check.get('files_limit', 10)} candidate selections. Upgrade to select more candidates."
+                    }
+                )
         
         # ========== STEP 3: VALIDATE JOB TITLE AND KEYWORDS ==========
         if not job_title or not job_title.strip():
@@ -927,7 +919,6 @@ async def selection_candidate(
                 # CRITICAL: Reset file pointer to beginning for processing
                 await file.seek(0)
                 validated_files.append(file)
-                print(f"DEBUG: File {idx+1} ({file.filename}) validated successfully")
                 
             except HTTPException:
                 # Re-raise HTTP exceptions immediately
@@ -936,10 +927,7 @@ async def selection_candidate(
                 # Log validation error but continue processing other files
                 error_msg = f"File {idx+1} ({file.filename if hasattr(file, 'filename') else 'unknown'}): {str(e)[:100]}"
                 validation_errors.append(error_msg)
-                print(f"DEBUG: Validation error for file {idx+1}: {str(e)}")
                 continue
-        
-        print(f"DEBUG: Total files received: {len(files)}, Validated files: {len(validated_files)}, Errors: {len(validation_errors)}")
         
         if len(validated_files) == 0:
             raise HTTPException(
