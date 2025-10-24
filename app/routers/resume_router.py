@@ -815,8 +815,8 @@ async def selection_candidate(
                 }
             )
         
-        # ========== STEP 2: CHECK RATE LIMIT ==========
-        rate_limit_check = await rate_limit_service.check_batch_analysis_limit(
+        # ========== STEP 2: CHECK RATE LIMIT (INDEPENDENT FROM BATCH-ANALYZE) ==========
+        rate_limit_check = await rate_limit_service.check_selected_candidate_limit(
             user_email,
             len(files)
         )
@@ -893,45 +893,70 @@ async def selection_candidate(
             )
         
         # ========== STEP 4: VALIDATE FILE FORMATS AND SIZES ==========
-        for file in files:
-            if not file.filename:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={
-                        "success": False,
-                        "message": "One or more files have no filename.",
-                        "error": "VALIDATION_ERROR"
-                    }
-                )
-            
-            if not file.filename.lower().endswith(('.pdf', '.doc', '.docx')):
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={
-                        "success": False,
-                        "message": f"Invalid file format: {file.filename}. Please upload PDF, DOC, or DOCX files only.",
-                        "error": "VALIDATION_ERROR"
-                    }
-                )
-            
-            # Check file size before reading
-            file_content = await file.read()
-            if len(file_content) > 10 * 1024 * 1024:  # 10MB
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail={
-                        "success": False,
-                        "message": f"File {file.filename} is too large. Maximum size is 10MB.",
-                        "error": "VALIDATION_ERROR"
-                    }
-                )
-            
-            # Reset file pointer after reading
-            await file.seek(0)
+        validated_files = []
+        validation_errors = []
+        
+        for idx, file in enumerate(files):
+            try:
+                if not file.filename:
+                    validation_errors.append(f"File {idx+1}: No filename")
+                    continue
+                
+                if not file.filename.lower().endswith(('.pdf', '.doc', '.docx')):
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail={
+                            "success": False,
+                            "message": f"Invalid file format: {file.filename}. Please upload PDF, DOC, or DOCX files only.",
+                            "error": "VALIDATION_ERROR"
+                        }
+                    )
+                
+                # Check file size before reading
+                file_content = await file.read()
+                if len(file_content) > 10 * 1024 * 1024:  # 10MB
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail={
+                            "success": False,
+                            "message": f"File {file.filename} is too large. Maximum size is 10MB.",
+                            "error": "VALIDATION_ERROR"
+                        }
+                    )
+                
+                # CRITICAL: Reset file pointer to beginning for processing
+                await file.seek(0)
+                validated_files.append(file)
+                print(f"DEBUG: File {idx+1} ({file.filename}) validated successfully")
+                
+            except HTTPException:
+                # Re-raise HTTP exceptions immediately
+                raise
+            except Exception as e:
+                # Log validation error but continue processing other files
+                error_msg = f"File {idx+1} ({file.filename if hasattr(file, 'filename') else 'unknown'}): {str(e)[:100]}"
+                validation_errors.append(error_msg)
+                print(f"DEBUG: Validation error for file {idx+1}: {str(e)}")
+                continue
+        
+        print(f"DEBUG: Total files received: {len(files)}, Validated files: {len(validated_files)}, Errors: {len(validation_errors)}")
+        
+        if len(validated_files) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "success": False,
+                    "message": "No valid files to process. " + "; ".join(validation_errors) if validation_errors else "All files failed validation",
+                    "error": "VALIDATION_ERROR"
+                }
+            )
         
         # ========== STEP 5: EVALUATE CANDIDATES ==========
         selector = CandidateSelector()
-        results = await selector.evaluate_candidates(files, job_title, keywords_list)
+        results = await selector.evaluate_candidates(validated_files, job_title, keywords_list)
+        
+        # Track actual processed files
+        successful_files_count = len([r for r in results if r.get("status") in ["FIT", "REJECT"]])
         
         # Count fit and reject
         fit_count = sum(1 for r in results if r["status"] == "FIT")
@@ -957,7 +982,9 @@ async def selection_candidate(
         )
         
         # ========== STEP 6: UPDATE RATE LIMIT COUNTERS ==========
-        await rate_limit_service.increment_selected_candidate_counter(user_email, len(files))
+        # Use successful files count for accurate tracking (INDEPENDENT counter)
+        if successful_files_count > 0:
+            await rate_limit_service.increment_selected_candidate_counter(user_email, successful_files_count)
         
         return response
         

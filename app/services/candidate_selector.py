@@ -23,13 +23,24 @@ class CandidateSelector:
         """
         results = []
         
-        for file in files:
+        for idx, file in enumerate(files):
             try:
-                # Reset file pointer to beginning
-                await file.seek(0)
+                # Reset file pointer to beginning - critical for multiple files
+                try:
+                    await file.seek(0)
+                except Exception as seek_err:
+                    print(f"Warning: Could not seek on file {idx} ({file.filename}): {seek_err}")
                 
                 # Extract text from resume
                 content = await self._extract_resume_text(file)
+                
+                if not content or not content.strip():
+                    results.append({
+                        "candidate": file.filename or f"File{idx+1}",
+                        "status": "REJECT",
+                        "message": "No readable content found in file"
+                    })
+                    continue
                 
                 # Evaluate candidate
                 evaluation = await self.selector_service.evaluate_candidate(
@@ -37,16 +48,17 @@ class CandidateSelector:
                 )
                 
                 result = {
-                    "candidate": file.filename or "unknown",
+                    "candidate": file.filename or f"File{idx+1}",
                     "status": evaluation.get("status", "REJECT"),
                     "message": evaluation.get("message", "Evaluation completed")
                 }
                 results.append(result)
                 
             except Exception as e:
-                # If parsing fails, mark as reject
+                # If parsing fails, mark as reject with detailed error
+                print(f"Error processing file {idx} ({file.filename}): {str(e)}")
                 results.append({
-                    "candidate": file.filename or "unknown",
+                    "candidate": file.filename or f"File{idx+1}",
                     "status": "REJECT",
                     "message": f"Could not parse file: {str(e)[:50]}"
                 })

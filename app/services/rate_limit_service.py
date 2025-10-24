@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 
 class RateLimitService:
     def __init__(self):
-        self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "https://jobpsych-auth.vercel.app/api")
-        # self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "http://localhost:5000/api")
+        # self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "https://jobpsych-auth.vercel.app/api")
+        self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "http://localhost:5000/api")
         self.upload_limit = 10
         self.batch_size_limit = 5
         self.free_tier_limit = 10
@@ -278,6 +278,103 @@ class RateLimitService:
                 "message": "Could not verify limit, allowing request",
                 "current_compare_count": 0,
                 "resume_count": resume_count
+            }
+
+    async def check_selected_candidate_limit(self, email: str, file_count: int) -> Dict:
+        """
+        Check selected_candidate limit - INDEPENDENT from batch_analysis.
+        Uses its own counter to track candidate selections.
+        Args:
+            email: User email
+            file_count: Number of files being submitted (max 5 per batch)
+        Returns:
+            Dict indicating if the request is allowed
+        """
+        try:
+            # Validate batch size (max 5 files per batch)
+            if file_count > self.batch_size_limit:
+                return {
+                    "allowed": False,
+                    "reason": "batch_size_exceeded",
+                    "message": f"Maximum {self.batch_size_limit} files per batch. You submitted {file_count}.",
+                    "batch_limit": self.batch_size_limit,
+                    "submitted": file_count
+                }
+
+            # Get current selected_candidate counter (independent check)
+            usage = await self.get_feature_usage(email)
+            if usage is None:
+                # Service unavailable - fail open
+                return {
+                    "allowed": True,
+                    "reason": "service_unavailable",
+                    "message": "Could not verify limit, allowing request",
+                    "current_count": 0,
+                    "file_count": file_count,
+                    "files_limit": self.free_tier_limit,
+                    "files_allowed": file_count,
+                    "would_exceed_by": 0
+                }
+
+            # Get selected_candidate counter (separate from batch_analysis)
+            current_selected_count = usage.get("selected_candidate", 0)
+            
+            # Check if adding these files would exceed the free tier limit (10 files)
+            total_after_upload = current_selected_count + file_count
+            
+            if total_after_upload > self.free_tier_limit:
+                # User would exceed the limit
+                files_allowed = self.free_tier_limit - current_selected_count
+                would_exceed_by = total_after_upload - self.free_tier_limit
+                
+                if files_allowed <= 0:
+                    # User has already hit the limit
+                    return {
+                        "allowed": False,
+                        "reason": "file_limit_exceeded",
+                        "message": f"You've reached your free limit of {self.free_tier_limit} candidate selections. Upgrade to select more candidates.",
+                        "current_count": current_selected_count,
+                        "batch_size": file_count,
+                        "files_limit": self.free_tier_limit,
+                        "files_allowed": 0,
+                        "would_exceed_by": file_count
+                    }
+                else:
+                    # User can upload some files, but not all
+                    return {
+                        "allowed": False,
+                        "reason": "file_limit_exceeded",
+                        "message": f"Uploading all {file_count} files would exceed your free limit of {self.free_tier_limit}. You can select {files_allowed} more candidate(s).",
+                        "current_count": current_selected_count,
+                        "batch_size": file_count,
+                        "files_limit": self.free_tier_limit,
+                        "files_allowed": files_allowed,
+                        "would_exceed_by": would_exceed_by
+                    }
+            
+            # All files are allowed
+            return {
+                "allowed": True,
+                "reason": "ok",
+                "message": f"Candidate selection allowed. Current selections: {current_selected_count}, Submitting: {file_count}",
+                "current_count": current_selected_count,
+                "batch_size": file_count,
+                "files_limit": self.free_tier_limit,
+                "files_allowed": file_count,
+                "would_exceed_by": 0
+            }
+
+        except Exception as e:
+            # Fail open - allow request
+            return {
+                "allowed": True,
+                "reason": "check_failed",
+                "message": "Could not verify limit, allowing request",
+                "current_count": 0,
+                "batch_size": file_count,
+                "files_limit": self.free_tier_limit,
+                "files_allowed": file_count,
+                "would_exceed_by": 0
             }
 
     async def increment_batch_counter(self, email: str, count: int = 1) -> bool:
