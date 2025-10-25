@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class RateLimitService:
     def __init__(self):
         self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "https://jobpsych-auth.vercel.app/api")
-        self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "http://localhost:5000/api")
+        # self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "http://localhost:5000/api")
         self.upload_limit = 10
         self.batch_size_limit = 5
         self.free_tier_limit = 10
